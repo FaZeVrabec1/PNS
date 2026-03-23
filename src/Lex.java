@@ -2,7 +2,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
 
-public class Main {
+public class Lex {
     public static void main(String[] args) {
         String inputs[] = new String[]{"a+b*(12-3)/x","12*(a/2)-_a","1a-2","3-2?1"};
 
@@ -49,12 +49,12 @@ ob napaki pa bo izpisal obvestilo o napaki in končal izvajanje programa.
                 return "DIV";
         }
 
-        //Brackets
+        //Parentheses
         switch (input){
             case "(":
-                return "LeftBracket";
+                return "LeftParentheses";
             case ")":
-                return "RightBracket";
+                return "RightParentheses";
         }
 
         //Identifier
@@ -86,7 +86,7 @@ ob napaki pa bo izpisal obvestilo o napaki in končal izvajanje programa.
                 continue;
             }
 
-            // Brackets
+            // Parentheses
             if (c == '(' || c == ')') {
                 tokens.add(lexAnalyserStep(String.valueOf(c)));
                 i++;
