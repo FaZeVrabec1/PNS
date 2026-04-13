@@ -1,0 +1,7 @@
+var _kfoai = 8 * "neki";
+var fkaio92j0a = 1 * 'a';
+
+fun a    (c,dvv,d,f,d);
+
+fun b() =
+    1
