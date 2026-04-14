@@ -120,9 +120,41 @@ public class LexAn implements AutoCloseable {
 		int startColumn = buffCharColumn;
 		StringBuilder lexeme = new StringBuilder();
 
-		//Skip spaces
-		while (Character.isWhitespace(buffChar)) {
-			nextChar();
+		// Skip whitespace and comments
+		while (true) {
+
+			// Skip whitespace
+			while (Character.isWhitespace(buffChar)) {
+				nextChar();
+			}
+
+			// Handle comments
+			if (buffChar == '/') {
+				startLine = buffCharLine;
+				startColumn = buffCharColumn;
+
+				nextChar();
+
+				if (buffChar == '/') {
+					// Skip comment until end of line
+					while (buffChar != '\n' && buffChar != -1) {
+						nextChar();
+					}
+					// Continue outer loop (treat comment like whitespace)
+					continue;
+				} else {
+					// It's DIV, not a comment so return token
+					buffToken = new Token(
+							new Report.Location(startLine, startColumn),
+							Token.Symbol.DIV,
+							"/"
+					);
+					return;
+				}
+			}
+
+			// No more whitespace/comments
+			break;
 		}
 
 		// End of file
@@ -131,21 +163,8 @@ public class LexAn implements AutoCloseable {
 			return;
 		}
 
-		/*
-		//Identifiers
-		if (Character.isLetter(buffChar)){
-			startLine = buffCharLine;
-			startColumn = buffCharColumn;
-			StringBuilder lexeme = new StringBuilder();
-
-			while (Character.isLetter(buffChar)){
-				lexeme.append((char) buffChar);
-				nextChar();
-			}
-
-			buffToken = new Token(new Report.Location(startLine, startColumn, buffCharLine, buffCharColumn), Token.Symbol.IDENTIFIER, lexeme.toString());
-			return;
-		}*/
+		startLine = buffCharLine;
+		startColumn = buffCharColumn;
 		//Identifiers and Keywords
 		if (Character.isLetter(buffChar) || buffChar == '_') {
 			lexeme = new StringBuilder();
@@ -189,29 +208,81 @@ public class LexAn implements AutoCloseable {
 		}
 
 		//CHARCONST
-		if (buffChar == '\''){
-			startLine = buffCharLine;
-			startColumn = buffCharColumn;
+		if (buffChar == '\'') {
 			lexeme = new StringBuilder();
+			int charStartLine = startLine;
+			int charStartColumn = startColumn;
+			lexeme.append((char) buffChar); // Add the opening single quote
+			nextChar();
 
-			//Check for valid charecters
-			if	(32 <= buffChar && buffChar <= 126){
-				nextChar(); //grab char bettwen '
+			if (buffChar == -1 || buffChar == '\n') {
+				throw new Report.Error(new Report.Location(charStartLine, charStartColumn), "Unclosed CHARCONST.");
+			}
+
+			if (buffChar == '\\') { // Handle escape sequences
+				lexeme.append((char) buffChar);
+				nextChar();
+
+				if ((buffChar >= '0' && buffChar <= '9') ||
+						(buffChar >= 'a' && buffChar <= 'f') ||
+						(buffChar >= 'A' && buffChar <= 'F')) {
+
+					// prvi hex znak
+					char first = (char) buffChar;
+					lexeme.append(first);
+					nextChar();
+
+					if (!((buffChar >= '0' && buffChar <= '9') ||
+							(buffChar >= 'a' && buffChar <= 'f') ||
+							(buffChar >= 'A' && buffChar <= 'F'))) {
+
+						throw new Report.Error(
+								new Report.Location(charStartLine, charStartColumn),
+								"Invalid hex escape in CHARCONST."
+						);
+					}
+
+					// drugi hex znak
+					char second = (char) buffChar;
+					lexeme.append(second);
+
+				} else {
+					switch (buffChar) {
+						case 'n':
+							lexeme.append('n');
+							break;
+						case '\'':
+							lexeme.append('\'');
+							break;
+						case '\\':
+							lexeme.append('\\');
+							break;
+						default:
+							throw new Report.Error(new Report.Location(charStartLine, charStartColumn), "Invalid escape sequence in CHARCONST.");
+					}
+				}
+			} else { // Handle regular characters
+				if (buffChar < 32 || buffChar > 126) {
+					throw new Report.Error(new Report.Location(charStartLine, charStartColumn), "Invalid character in CHARCONST.");
+				}
 				lexeme.append((char) buffChar);
 			}
-			else {
-				throw new Report.Error(new Report.Location(buffCharLine, buffCharColumn), "Invalid char.");
-			}
-//			nextChar(); //grab char bettwen '
-//			lexeme.append((char) buffChar);
 
-			nextChar(); //make sure it closes with '
-			if (buffChar != '\''){
-				throw new Report.Error(new Report.Location(startLine, startColumn), "Unclosed CHARCONST.");
-			}
-			nextChar(); //need to consume closing '
+			nextChar();
 
-			buffToken = new Token(new Report.Location(startLine, startColumn, buffCharLine, buffCharColumn), Token.Symbol.CHARCONST, lexeme.toString());
+			if (buffChar != '\'') { // Ensure the CHARCONST ends with a single quote
+				throw new Report.Error(new Report.Location(charStartLine, charStartColumn), "Unclosed CHARCONST.");
+			}
+
+			lexeme.append((char) buffChar); // Add the closing single quote
+			int charEndColumn = buffCharColumn; // This is the column of the closing quote
+			nextChar();
+
+			buffToken = new Token(
+					new Report.Location(charStartLine, charStartColumn, charStartLine, charEndColumn),
+					Token.Symbol.CHARCONST,
+					lexeme.toString()
+			);
 			return;
 		}
 
@@ -223,7 +294,6 @@ public class LexAn implements AutoCloseable {
 			nextChar();
 
 			while (buffChar != '"'){
-
 				//Check for valid charecters
 				if	(32 <= buffChar && buffChar <= 126){
 					lexeme.append((char) buffChar);
@@ -233,8 +303,6 @@ public class LexAn implements AutoCloseable {
 					throw new Report.Error(new Report.Location(buffCharLine, buffCharColumn), "Invalid char.");
 				}
 
-
-
 			}
 
 			nextChar();
@@ -243,20 +311,7 @@ public class LexAn implements AutoCloseable {
 			return;
 		}
 
-		//Comments and DIV
-		if	(buffChar == '/'){
-			nextChar();
-			if (buffChar == '/'){
-				//Comment, skip this line
-				while (buffChar != '\n'){
-					nextChar();
-				}
-				nextChar();
-			}
-			else {
-				buffToken = new Token(new Report.Location(buffCharLine, buffCharColumn), Token.Symbol.DIV, "/");
-			}
-		}
+
 
 		// Symbols
 		startLine = buffCharLine;
@@ -339,6 +394,7 @@ public class LexAn implements AutoCloseable {
 		}
 
 		buffToken = new Token(new Report.Location(startLine, startColumn), symbol, lexeme.toString());
+		return;
 
 	}
 

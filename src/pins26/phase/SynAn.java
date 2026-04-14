@@ -14,7 +14,7 @@ public class SynAn implements AutoCloseable {
 
 	/**
 	 * Ustvari nov sintaksni analizator.
-	 * 
+	 *
 	 * @param srcFileName Ime izvorne datoteke.
 	 */
 	public SynAn(final String srcFileName) {
@@ -29,12 +29,16 @@ public class SynAn implements AutoCloseable {
 	/**
 	 * Prevzame leksikalni analizator od leksikalnega analizatorja in preveri, ali
 	 * je prave vrste.
-	 * 
+	 *
 	 * @param symbol Pricakovana vrsta leksikalnega simbola.
 	 * @return Prevzeti leksikalni simbol.
 	 */
 	private Token check(Token.Symbol symbol) {
 		final Token token = lexAn.takeToken();
+
+		//Added for tracing
+		traceToken(token);
+
 		if (token.symbol() != symbol)
 			throw new Report.Error(token, "Unexpected symbol '" + token.lexeme() + "'.");
 		return token;
@@ -44,39 +48,32 @@ public class SynAn implements AutoCloseable {
 	 * Opravi sintaksno analizo.
 	 */
 	public void parse() {
-	        /*** TODO ***/
-			program();
+		program();
 
-                if (lexAn.peekToken().symbol() != Token.Symbol.EOF)
+		if (lexAn.peekToken().symbol() != Token.Symbol.EOF)
 			Report.warning(lexAn.peekToken(),
 					"Unexpected text '" + lexAn.peekToken().lexeme() + "...' at the end of the program.");
 	}
 
 	//PROGRAM
+
 	private void program() {
-		definition();
+		trace("program");
 
-		while (lexAn.peekToken().symbol() == Token.Symbol.SEMIC) {
-			check(Token.Symbol.SEMIC);
-
-			if (lexAn.peekToken().symbol() == Token.Symbol.FUN ||
-					lexAn.peekToken().symbol() == Token.Symbol.VAR) {
-				definition();
-			} else {
-				break; // trailing ;
-			}
-		}
-	}
-
-	//DEFINITONS
-	private void def_opt() {
 		while (lexAn.peekToken().symbol() == Token.Symbol.FUN ||
 				lexAn.peekToken().symbol() == Token.Symbol.VAR) {
 			definition();
+
+			if (lexAn.peekToken().symbol() == Token.Symbol.SEMIC)
+				check(Token.Symbol.SEMIC);
 		}
 	}
 
+	//DEFINITION
+
 	private void definition() {
+		trace("definition");
+
 		if (lexAn.peekToken().symbol() == Token.Symbol.FUN) {
 			check(Token.Symbol.FUN);
 			check(Token.Symbol.IDENTIFIER);
@@ -84,11 +81,13 @@ public class SynAn implements AutoCloseable {
 			parameters();
 			check(Token.Symbol.RPAREN);
 			fun_def_opt();
+
 		} else if (lexAn.peekToken().symbol() == Token.Symbol.VAR) {
 			check(Token.Symbol.VAR);
 			check(Token.Symbol.IDENTIFIER);
 			check(Token.Symbol.ASSIGN);
 			initializers();
+
 		} else {
 			throw new Report.Error(lexAn.peekToken(), "Expected definition.");
 		}
@@ -101,10 +100,21 @@ public class SynAn implements AutoCloseable {
 		}
 	}
 
+	private void def_opt() {
+		while (lexAn.peekToken().symbol() == Token.Symbol.FUN ||
+				lexAn.peekToken().symbol() == Token.Symbol.VAR) {
+			definition();
+		}
+	}
+
 	//PARAMETERS
+
 	private void parameters() {
+		trace("parameters");
+
 		if (lexAn.peekToken().symbol() == Token.Symbol.IDENTIFIER) {
 			check(Token.Symbol.IDENTIFIER);
+
 			while (lexAn.peekToken().symbol() == Token.Symbol.COMMA) {
 				check(Token.Symbol.COMMA);
 				check(Token.Symbol.IDENTIFIER);
@@ -113,21 +123,25 @@ public class SynAn implements AutoCloseable {
 	}
 
 	//STATEMENTS
+
 	private void statements() {
+		trace("statements");
+
 		statement();
+
 		while (lexAn.peekToken().symbol() == Token.Symbol.SEMIC) {
 			check(Token.Symbol.SEMIC);
 
-			if (isStatementStart(lexAn.peekToken().symbol())) {
+			if (isStatementStart(lexAn.peekToken().symbol()))
 				statement();
-			} else {
-				break; // trailing ;
-			}
+			else
+				break;
 		}
 	}
 
-	//STATEMENT
 	private void statement() {
+		trace("statement");
+
 		Token.Symbol sym = lexAn.peekToken().symbol();
 
 		if (sym == Token.Symbol.IF) {
@@ -137,12 +151,14 @@ public class SynAn implements AutoCloseable {
 			statements();
 			else_opt();
 			check(Token.Symbol.END);
+
 		} else if (sym == Token.Symbol.WHILE) {
 			check(Token.Symbol.WHILE);
 			expression();
 			check(Token.Symbol.DO);
 			statements();
 			check(Token.Symbol.END);
+
 		} else if (sym == Token.Symbol.LET) {
 			check(Token.Symbol.LET);
 			definition();
@@ -150,8 +166,10 @@ public class SynAn implements AutoCloseable {
 			check(Token.Symbol.IN);
 			statements();
 			check(Token.Symbol.END);
+
 		} else {
 			expression();
+
 			if (lexAn.peekToken().symbol() == Token.Symbol.ASSIGN) {
 				check(Token.Symbol.ASSIGN);
 				expression();
@@ -167,12 +185,16 @@ public class SynAn implements AutoCloseable {
 	}
 
 	//EXPRESSIONS
+
 	private void expression() {
+		trace("expression");
 		disjunction();
 	}
 
 	private void disjunction() {
+		trace("disjunction");
 		conjunction();
+
 		while (lexAn.peekToken().symbol() == Token.Symbol.OR) {
 			check(Token.Symbol.OR);
 			conjunction();
@@ -180,7 +202,9 @@ public class SynAn implements AutoCloseable {
 	}
 
 	private void conjunction() {
+		trace("conjunction");
 		comparison();
+
 		while (lexAn.peekToken().symbol() == Token.Symbol.AND) {
 			check(Token.Symbol.AND);
 			comparison();
@@ -188,7 +212,9 @@ public class SynAn implements AutoCloseable {
 	}
 
 	private void comparison() {
+		trace("comparison");
 		additive();
+
 		Token.Symbol sym = lexAn.peekToken().symbol();
 
 		if (sym == Token.Symbol.EQU || sym == Token.Symbol.NEQ ||
@@ -200,7 +226,9 @@ public class SynAn implements AutoCloseable {
 	}
 
 	private void additive() {
+		trace("additive");
 		multiplicative();
+
 		while (lexAn.peekToken().symbol() == Token.Symbol.ADD ||
 				lexAn.peekToken().symbol() == Token.Symbol.SUB) {
 			check(lexAn.peekToken().symbol());
@@ -209,7 +237,9 @@ public class SynAn implements AutoCloseable {
 	}
 
 	private void multiplicative() {
+		trace("multiplicative");
 		prefix();
+
 		while (lexAn.peekToken().symbol() == Token.Symbol.MUL ||
 				lexAn.peekToken().symbol() == Token.Symbol.DIV ||
 				lexAn.peekToken().symbol() == Token.Symbol.MOD) {
@@ -218,8 +248,9 @@ public class SynAn implements AutoCloseable {
 		}
 	}
 
-	//PREFIX / POSTFIX
 	private void prefix() {
+		trace("prefix");
+
 		if (lexAn.peekToken().symbol() == Token.Symbol.NOT ||
 				lexAn.peekToken().symbol() == Token.Symbol.ADD ||
 				lexAn.peekToken().symbol() == Token.Symbol.SUB) {
@@ -231,25 +262,31 @@ public class SynAn implements AutoCloseable {
 	}
 
 	private void postfix() {
+		trace("postfix");
 		primary_exp();
-		// postfix operators (if you have any, e.g. ++, --, etc.)
 	}
 
-	//PRIMARY EXPRESSIONS
+	//PRIMARY
+
 	private void primary_exp() {
+		trace("primary_exp");
+
 		Token.Symbol sym = lexAn.peekToken().symbol();
 
 		if (sym == Token.Symbol.LPAREN) {
 			check(Token.Symbol.LPAREN);
 			expression();
 			check(Token.Symbol.RPAREN);
+
 		} else if (sym == Token.Symbol.INTCONST ||
 				sym == Token.Symbol.CHARCONST ||
 				sym == Token.Symbol.STRINGCONST) {
 			check(sym);
+
 		} else if (sym == Token.Symbol.IDENTIFIER) {
 			check(Token.Symbol.IDENTIFIER);
 			exp_args_opt();
+
 		} else {
 			throw new Report.Error(lexAn.peekToken(), "Expected primary expression.");
 		}
@@ -263,10 +300,12 @@ public class SynAn implements AutoCloseable {
 		}
 	}
 
-	//ARGUMENTS
 	private void arguments() {
+		trace("arguments");
+
 		if (isExpressionStart(lexAn.peekToken().symbol())) {
 			expression();
+
 			while (lexAn.peekToken().symbol() == Token.Symbol.COMMA) {
 				check(Token.Symbol.COMMA);
 				expression();
@@ -275,29 +314,34 @@ public class SynAn implements AutoCloseable {
 	}
 
 	//INITIALIZERS
+
 	private void initializers() {
-		if (isConstStart(lexAn.peekToken().symbol()) ||
-				lexAn.peekToken().symbol() == Token.Symbol.INTCONST) {
+		trace("initializers");
+
+		initializer();
+
+		while (lexAn.peekToken().symbol() == Token.Symbol.COMMA) {
+			check(Token.Symbol.COMMA);
 			initializer();
-			while (lexAn.peekToken().symbol() == Token.Symbol.COMMA) {
-				check(Token.Symbol.COMMA);
-				initializer();
-			}
 		}
 	}
 
 	private void initializer() {
-		if (lexAn.peekToken().symbol() == Token.Symbol.INTCONST) {
-			check(Token.Symbol.INTCONST);
-			if (lexAn.peekToken().symbol() == Token.Symbol.MUL) {
-				check(Token.Symbol.MUL);
-			}
-		}
+		trace("initializer");
+
 		konst();
+
+		if (lexAn.peekToken().symbol() == Token.Symbol.MUL) {
+			check(Token.Symbol.MUL);
+			konst();
+		}
 	}
 
 	private void konst() {
+		trace("const");
+
 		Token.Symbol sym = lexAn.peekToken().symbol();
+
 		if (sym == Token.Symbol.INTCONST ||
 				sym == Token.Symbol.CHARCONST ||
 				sym == Token.Symbol.STRINGCONST) {
@@ -307,7 +351,7 @@ public class SynAn implements AutoCloseable {
 		}
 	}
 
-	//Helpers
+	//HELPERS
 	private boolean isExpressionStart(Token.Symbol sym) {
 		return sym == Token.Symbol.IDENTIFIER ||
 				sym == Token.Symbol.INTCONST ||
@@ -319,24 +363,19 @@ public class SynAn implements AutoCloseable {
 				sym == Token.Symbol.SUB;
 	}
 
-	private boolean isConstStart(Token.Symbol sym) {
-		return sym == Token.Symbol.INTCONST ||
-				sym == Token.Symbol.CHARCONST ||
-				sym == Token.Symbol.STRINGCONST;
+	private boolean isStatementStart(Token.Symbol sym) {
+		return isExpressionStart(sym) ||
+				sym == Token.Symbol.IF ||
+				sym == Token.Symbol.WHILE ||
+				sym == Token.Symbol.LET;
 	}
 
-	private boolean isStatementStart(Token.Symbol sym) {
-		return sym == Token.Symbol.IF ||
-				sym == Token.Symbol.WHILE ||
-				sym == Token.Symbol.LET ||
-				sym == Token.Symbol.IDENTIFIER ||
-				sym == Token.Symbol.INTCONST ||
-				sym == Token.Symbol.CHARCONST ||
-				sym == Token.Symbol.STRINGCONST ||
-				sym == Token.Symbol.LPAREN ||
-				sym == Token.Symbol.NOT ||
-				sym == Token.Symbol.ADD ||
-				sym == Token.Symbol.SUB;
+	private void trace(String msg) {
+		System.out.println(msg);
+	}
+
+	private void traceToken(Token token) {
+		System.out.println(token.symbol() + "(" + token.lexeme() + ")");
 	}
 
         /*** TODO ***/
@@ -345,7 +384,7 @@ public class SynAn implements AutoCloseable {
 
 	/**
 	 * Zagon sintaksnega analizatorja kot samostojnega programa.
-	 * 
+	 *
 	 * @param cmdLineArgs Argumenti v ukazni vrstici.
 	 */
 	public static void main(final String[] cmdLineArgs) {
