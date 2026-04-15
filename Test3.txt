@@ -25,4 +25,6 @@ fun main() =        // func def
             x = x + 1;
         end;
     end;        // end of larger let statement, semicolon
+
+    y() =^ b;
     

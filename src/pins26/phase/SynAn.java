@@ -253,7 +253,8 @@ public class SynAn implements AutoCloseable {
 
 		if (lexAn.peekToken().symbol() == Token.Symbol.NOT ||
 				lexAn.peekToken().symbol() == Token.Symbol.ADD ||
-				lexAn.peekToken().symbol() == Token.Symbol.SUB) {
+				lexAn.peekToken().symbol() == Token.Symbol.SUB ||
+				lexAn.peekToken().symbol() == Token.Symbol.PTR) {
 			check(lexAn.peekToken().symbol());
 			prefix();
 		} else {
@@ -264,6 +265,11 @@ public class SynAn implements AutoCloseable {
 	private void postfix() {
 		trace("postfix");
 		primary_exp();
+
+		//Check if correct postfix operator implementation
+		if (lexAn.peekToken().symbol() == Token.Symbol.PTR) {
+			check(Token.Symbol.PTR);
+		}
 	}
 
 	//PRIMARY
