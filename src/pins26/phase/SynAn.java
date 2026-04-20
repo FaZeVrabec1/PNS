@@ -876,7 +876,6 @@ public class SynAn implements AutoCloseable {
 		System.out.println(token.symbol() + "(" + token.lexeme() + ")");
 	}
 
-	/*** TODO ***/
 
 	// --- ZAGON ---
 
