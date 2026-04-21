@@ -118,15 +118,13 @@ public class SynAn implements AutoCloseable {
 			Token varTok = check(Token.Symbol.VAR);
 			Token name = check(Token.Symbol.IDENTIFIER);
 
-			//Error is here because i demand that after id there is assing, when there could be prefix
-
 			check(Token.Symbol.ASSIGN);
 			List<AST.Init> inits = parseInitializers();
 
-			AST.MainDef node = new AST.VarDef(name.lexeme(), inits);
-			attrLoc.put(node, varTok);
+			AST.MainDef node2 = new AST.VarDef(name.lexeme(), inits);
+			attrLoc.put(node2, varTok);
 
-			return node;
+			return node2;
 		}
 
 		throw new Report.Error(lexAn.peekToken(), "Expected definition.");
@@ -135,16 +133,23 @@ public class SynAn implements AutoCloseable {
 	private List<AST.ParDef> parseParameters() {
 
 		List<AST.ParDef> params = new Vector<>();
+		Token t = lexAn.peekToken();
 
-		if (lexAn.peekToken().symbol() == Token.Symbol.IDENTIFIER) {
+		if (t.symbol() == Token.Symbol.IDENTIFIER) {
 
 			Token id = check(Token.Symbol.IDENTIFIER);
-			params.add(new AST.ParDef(id.lexeme()));
+
+			AST.ParDef param = new AST.ParDef(id.lexeme());
+			attrLoc.put(param, id);
+			params.add(param);
+
 
 			while (lexAn.peekToken().symbol() == Token.Symbol.COMMA) {
 				check(Token.Symbol.COMMA);
 				id = check(Token.Symbol.IDENTIFIER);
-				params.add(new AST.ParDef(id.lexeme()));
+				AST.ParDef param2 = new AST.ParDef(id.lexeme());
+				attrLoc.put(param2, id);
+				params.add(param2);
 			}
 		}
 
@@ -401,10 +406,8 @@ public class SynAn implements AutoCloseable {
 		if (lexAn.peekToken().symbol() == Token.Symbol.NOT ||
 				lexAn.peekToken().symbol() == Token.Symbol.ADD ||
 				lexAn.peekToken().symbol() == Token.Symbol.SUB ||
-				lexAn.peekToken().symbol() == Token.Symbol.PTR ||
-				lexAn.peekToken().symbol().name().equals("POW")) { // POW for ^ if defined
+				lexAn.peekToken().symbol() == Token.Symbol.PTR) {
 			Token.Symbol sym = lexAn.peekToken().symbol();
-			// Accept '^' as a prefix operator
 			if (sym == Token.Symbol.NOT || sym == Token.Symbol.ADD || sym == Token.Symbol.SUB || sym == Token.Symbol.PTR || sym.name().equals("POW") || sym.name().equals("CARET")) {
 				Token op = check(sym);
 				AST.Expr expr = parsePrefix();
@@ -413,12 +416,8 @@ public class SynAn implements AutoCloseable {
 					case ADD -> AST.UnExpr.Oper.ADD;
 					case SUB -> AST.UnExpr.Oper.SUB;
 					case PTR -> AST.UnExpr.Oper.MEMADDR;
-					// If you have a dedicated enum for ^, add it here, else use MEMADDR or create a new one
 					default -> {
-						if (op.symbol().name().equals("POW") || op.symbol().name().equals("CARET"))
-							yield AST.UnExpr.Oper.MEMADDR; // Or define a new Oper if needed
-						else
-							throw new Report.InternalError();
+						throw new Report.InternalError();
 					}
 				};
 				AST.Expr node = new AST.UnExpr(oper, expr);
@@ -427,7 +426,7 @@ public class SynAn implements AutoCloseable {
 			}
 		}
 
-		return parsePostfix(); // continue pipeline
+		return parsePostfix();
 	}
 
 	private AST.Expr parsePostfix() {
@@ -438,15 +437,6 @@ public class SynAn implements AutoCloseable {
 			if (sym == Token.Symbol.PTR) {
 				Token op = check(Token.Symbol.PTR);
 				AST.Expr node = new AST.UnExpr(AST.UnExpr.Oper.VALUEAT, expr);
-				attrLoc.put(node, op);
-				expr = node;
-				continue;
-			}
-			// Support for postfix '^' operator
-			if (sym.name().equals("POW") || sym.name().equals("CARET")) {
-				Token op = check(sym);
-				// If you have a dedicated enum for ^, add it here, else use VALUEAT or create a new one
-				AST.Expr node = new AST.UnExpr(AST.UnExpr.Oper.VALUEAT, expr); // Or define a new Oper if needed
 				attrLoc.put(node, op);
 				expr = node;
 				continue;
@@ -537,10 +527,10 @@ public class SynAn implements AutoCloseable {
 	private List<AST.Init> parseInitializers() {
 
 		List<AST.Init> list = new Vector<>();
-
+		Token t = lexAn.peekToken();
 		list.add(parseInitializer());
 
-		while (lexAn.peekToken().symbol() == Token.Symbol.COMMA) {
+		while (t.symbol() == Token.Symbol.COMMA) {
 			check(Token.Symbol.COMMA);
 			list.add(parseInitializer());
 		}
@@ -549,17 +539,26 @@ public class SynAn implements AutoCloseable {
 	}
 
 	private AST.Init parseInitializer() {
-
+		Token t = lexAn.peekToken();
 		AST.AtomExpr value = parseAtom();
 
-		if (lexAn.peekToken().symbol() == Token.Symbol.MUL) {
+		if (t.symbol() == Token.Symbol.MUL) {
 			check(Token.Symbol.MUL);
 			AST.AtomExpr num = parseAtom();
-			return new AST.Init(num, value);
+			attrLoc.put(num, t);
+
+			AST.Init node = new AST.Init(num, value);
+			attrLoc.put(node, t);
+
+			return node;
 		}
 
 		AST.AtomExpr one = new AST.AtomExpr(AST.AtomExpr.Type.INTCONST, "1");
-		return new AST.Init(one, value);
+		attrLoc.put(one, t);
+		AST.Init node = new AST.Init(one, value);
+		attrLoc.put(node, t);
+
+		return node;
 	}
 
 	private AST.AtomExpr parseAtom() {
@@ -567,17 +566,25 @@ public class SynAn implements AutoCloseable {
 
 		if (t.symbol() == Token.Symbol.INTCONST) {
 			check(Token.Symbol.INTCONST);
-			return new AST.AtomExpr(AST.AtomExpr.Type.INTCONST, t.lexeme());
+
+			AST.AtomExpr node =	new AST.AtomExpr(AST.AtomExpr.Type.INTCONST, t.lexeme());
+			attrLoc.put(node, t);
+			return node;
 		}
 
 		if (t.symbol() == Token.Symbol.CHARCONST) {
 			check(Token.Symbol.CHARCONST);
-			return new AST.AtomExpr(AST.AtomExpr.Type.CHRCONST, t.lexeme());
+
+			AST.AtomExpr node =	new AST.AtomExpr(AST.AtomExpr.Type.CHRCONST, t.lexeme());
+			attrLoc.put(node, t);
+			return node;
 		}
 
 		if (t.symbol() == Token.Symbol.STRINGCONST) {
 			check(Token.Symbol.STRINGCONST);
-			return new AST.AtomExpr(AST.AtomExpr.Type.STRCONST, t.lexeme());
+			AST.AtomExpr node =	new AST.AtomExpr(AST.AtomExpr.Type.STRCONST, t.lexeme());
+			attrLoc.put(node, t);
+			return node;
 		}
 
 		throw new Report.Error(t, "Expected constant atom.");
