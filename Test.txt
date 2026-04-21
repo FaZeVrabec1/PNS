@@ -1,23 +1,2 @@
-var x = 5
-var y = 2 * 3, 4, 5
-
-fun add(a, b) = a + b
-
-fun main() =
-    let
-        var z = 1, 2, 3
-        fun inc(n) = n + 1
-    in
-        x = add(x, y);
-        y = inc(y);
-
-        if x > y then
-            x = x - y
-        else
-            y = y - x
-        end;
-
-        while x < 20 do
-            x = x + 1
-        end
-    end
+fun test() =
+    piss ^= "shit\n"

@@ -1,6 +1,30 @@
-var m=0
-fun f(i,j)=g(i+j+m)+n;
-fun g(i)=i=^3;f(i,i+n)==(i^-'0');
-var n=1
-var hw="Hello,world."
-fun b()=3;
+// semicolons come after statements only
+
+var x = 5                // var defs no semicolon
+var y = 2 * 3, 4, 5
+
+fun add(a, b) =         // func def no semicolon
+    a + b;                // statement in function, semicolon
+
+fun main() =        // func def
+    let                // let is a statement containing definitions and statements
+        var z = 1, 2, 3        // var definition, no semicolon
+        fun inc(n) =         // func def, no semicolon
+            n + 1;            // statement in func body, semicolon
+    in
+        x = add(x, y);        // statements in let statement, semicolon
+        y = inc(y);
+
+        if x > y then        // if is also a statement containing statements
+            x = x - y;        // statement in if, has semic
+        else
+            y = y - x;
+        end;                // end of if statement, semicolon
+
+        while x < 20 do        // while is same as if
+            x = x + 1;
+        end;
+    end;        // end of larger let statement, semicolon
+
+    y() =^ b;
+    

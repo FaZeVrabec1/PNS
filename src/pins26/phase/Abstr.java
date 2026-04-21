@@ -16,7 +16,7 @@ public class Abstr {
 
 	/**
 	 * Abstraktno sintaksno drevo z dodanimi atributi abstraktne sintakse.
-	 * 
+	 *
 	 * Dodani atributi:
 	 * <ol>
 	 * <li>({@link Abstr}) lokacija kode, ki pripada posameznemu vozliscu.</li>
@@ -30,7 +30,7 @@ public class Abstr {
 		/**
 		 * Ustvari novo abstraktno sintaksno drevo z dodanimi atributi abstraktne
 		 * sintakse.
-		 * 
+		 *
 		 * @param attrAST Abstraktno sintaksno drevo.
 		 * @param attrLoc Atribut: lokacija kode, ki priprada posameznemu vozliscu.
 		 */
@@ -42,7 +42,7 @@ public class Abstr {
 		/**
 		 * Ustvari novo abstraktno sintaksno drevo z dodanimi atributi abstraktne
 		 * sintakse.
-		 * 
+		 *
 		 * @param attrAST Abstraktno sintaksno drevo z dodanimi atributi abstraktne
 		 *                sintakse.
 		 */
@@ -54,11 +54,11 @@ public class Abstr {
 		@Override
 		public String head(final AST.Node node, final boolean highlighted) {
 			switch (node) {
-			case AST.Nodes<?> nodes:
-				return "";
-			default:
-				final Report.Locatable loc = attrLoc.get(node);
-				return (" ") + (loc == null ? "???" : loc.location().toString());
+				case AST.Nodes<?> nodes:
+					return "";
+				default:
+					final Report.Locatable loc = attrLoc.get(node);
+					return (" ") + (loc == null ? "???" : loc.location().toString());
 			}
 		}
 
@@ -66,7 +66,7 @@ public class Abstr {
 
 	/**
 	 * S klicem sintaksnega analizatorja zgradi abstraktno sintaksno drevo.
-	 * 
+	 *
 	 * @param synAn Sintaksni analizator.
 	 * @return Abstraktno sintaksno drevo z dodanimi atributi abstraktne sintakse.
 	 */
@@ -84,7 +84,7 @@ public class Abstr {
 
 	/**
 	 * Zagon gradnje abstraktnega sintaksnega drevesa kot samostojnega programa.
-	 * 
+	 *
 	 * @param cmdLineArgs Argumenti v ukazni vrstici.
 	 */
 	public static void main(final String[] cmdLineArgs) {

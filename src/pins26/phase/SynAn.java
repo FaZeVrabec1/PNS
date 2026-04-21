@@ -118,6 +118,8 @@ public class SynAn implements AutoCloseable {
 			Token varTok = check(Token.Symbol.VAR);
 			Token name = check(Token.Symbol.IDENTIFIER);
 
+			//Error is here because i demand that after id there is assing, when there could be prefix
+
 			check(Token.Symbol.ASSIGN);
 			List<AST.Init> inits = parseInitializers();
 
@@ -247,6 +249,13 @@ public class SynAn implements AutoCloseable {
 
 			if (lexAn.peekToken().symbol() == Token.Symbol.ASSIGN) {
 
+				if (!(left instanceof AST.VarExpr ||
+						(left instanceof AST.UnExpr &&
+								((AST.UnExpr) left).oper == AST.UnExpr.Oper.VALUEAT))) {
+
+					throw new Report.Error(lexAn.peekToken(), "Invalid assignment target.");
+				}
+
 				Token assignTok = check(Token.Symbol.ASSIGN);
 				AST.Expr right = parseExpression();
 
@@ -263,6 +272,7 @@ public class SynAn implements AutoCloseable {
 			return node;
 		}
 	}
+
 
 	private AST.Expr parseExpression() {
 		return parseDisjunction();
@@ -386,26 +396,35 @@ public class SynAn implements AutoCloseable {
 
 	private AST.Expr parsePrefix() {
 
+
+		// Support for prefix operators: ! + - ^
 		if (lexAn.peekToken().symbol() == Token.Symbol.NOT ||
 				lexAn.peekToken().symbol() == Token.Symbol.ADD ||
 				lexAn.peekToken().symbol() == Token.Symbol.SUB ||
-				lexAn.peekToken().symbol() == Token.Symbol.PTR) {
-
-			Token op = check(lexAn.peekToken().symbol());
-			AST.Expr expr = parsePrefix();
-
-			AST.UnExpr.Oper oper = switch (op.symbol()) {
-				case NOT -> AST.UnExpr.Oper.NOT;
-				case ADD -> AST.UnExpr.Oper.ADD;
-				case SUB -> AST.UnExpr.Oper.SUB;
-				case PTR -> AST.UnExpr.Oper.MEMADDR;
-				default -> throw new Report.InternalError();
-			};
-
-			AST.Expr node = new AST.UnExpr(oper, expr);
-			attrLoc.put(node, op);
-
-			return node;
+				lexAn.peekToken().symbol() == Token.Symbol.PTR ||
+				lexAn.peekToken().symbol().name().equals("POW")) { // POW for ^ if defined
+			Token.Symbol sym = lexAn.peekToken().symbol();
+			// Accept '^' as a prefix operator
+			if (sym == Token.Symbol.NOT || sym == Token.Symbol.ADD || sym == Token.Symbol.SUB || sym == Token.Symbol.PTR || sym.name().equals("POW") || sym.name().equals("CARET")) {
+				Token op = check(sym);
+				AST.Expr expr = parsePrefix();
+				AST.UnExpr.Oper oper = switch (op.symbol()) {
+					case NOT -> AST.UnExpr.Oper.NOT;
+					case ADD -> AST.UnExpr.Oper.ADD;
+					case SUB -> AST.UnExpr.Oper.SUB;
+					case PTR -> AST.UnExpr.Oper.MEMADDR;
+					// If you have a dedicated enum for ^, add it here, else use MEMADDR or create a new one
+					default -> {
+						if (op.symbol().name().equals("POW") || op.symbol().name().equals("CARET"))
+							yield AST.UnExpr.Oper.MEMADDR; // Or define a new Oper if needed
+						else
+							throw new Report.InternalError();
+					}
+				};
+				AST.Expr node = new AST.UnExpr(oper, expr);
+				attrLoc.put(node, op);
+				return node;
+			}
 		}
 
 		return parsePostfix(); // continue pipeline
@@ -418,10 +437,17 @@ public class SynAn implements AutoCloseable {
 			Token.Symbol sym = lexAn.peekToken().symbol();
 			if (sym == Token.Symbol.PTR) {
 				Token op = check(Token.Symbol.PTR);
-
 				AST.Expr node = new AST.UnExpr(AST.UnExpr.Oper.VALUEAT, expr);
 				attrLoc.put(node, op);
-
+				expr = node;
+				continue;
+			}
+			// Support for postfix '^' operator
+			if (sym.name().equals("POW") || sym.name().equals("CARET")) {
+				Token op = check(sym);
+				// If you have a dedicated enum for ^, add it here, else use VALUEAT or create a new one
+				AST.Expr node = new AST.UnExpr(AST.UnExpr.Oper.VALUEAT, expr); // Or define a new Oper if needed
+				attrLoc.put(node, op);
 				expr = node;
 				continue;
 			}
@@ -444,17 +470,28 @@ public class SynAn implements AutoCloseable {
 
 		else if (sym == Token.Symbol.INTCONST) {
 			Token t = check(sym);
-			return new AST.AtomExpr(AST.AtomExpr.Type.INTCONST, t.lexeme());
+			AST.AtomExpr node =	new AST.AtomExpr(AST.AtomExpr.Type.INTCONST, t.lexeme());
+			attrLoc.put(node, t);
+
+			return node;
 		}
 
 		else if (sym == Token.Symbol.CHARCONST) {
 			Token t = check(sym);
-			return new AST.AtomExpr(AST.AtomExpr.Type.CHRCONST, t.lexeme());
+
+			AST.AtomExpr node =	new AST.AtomExpr(AST.AtomExpr.Type.CHRCONST, t.lexeme());
+			attrLoc.put(node, t);
+
+			return node;
 		}
 
 		else if (sym == Token.Symbol.STRINGCONST) {
 			Token t = check(sym);
-			return new AST.AtomExpr(AST.AtomExpr.Type.STRCONST, t.lexeme());
+
+			AST.AtomExpr node =	new AST.AtomExpr(AST.AtomExpr.Type.STRCONST, t.lexeme());
+			attrLoc.put(node, t);
+
+			return node;
 		}
 
 		else if (sym == Token.Symbol.IDENTIFIER) {
@@ -546,309 +583,309 @@ public class SynAn implements AutoCloseable {
 		throw new Report.Error(t, "Expected constant atom.");
 	}
 
-
-//	------------------------ OLD CODE ----------------------------
-	//PROGRAM
-	private void program() {
-		trace("program");
-
-		while (lexAn.peekToken().symbol() == Token.Symbol.FUN ||
-				lexAn.peekToken().symbol() == Token.Symbol.VAR) {
-			definition();
-
-			if (lexAn.peekToken().symbol() == Token.Symbol.SEMIC)
-				check(Token.Symbol.SEMIC);
-		}
-	}
-
-	//DEFINITION
-	private void definition() {
-		trace("definition");
-
-		if (lexAn.peekToken().symbol() == Token.Symbol.FUN) {
-			check(Token.Symbol.FUN);
-			check(Token.Symbol.IDENTIFIER);
-			check(Token.Symbol.LPAREN);
-			parameters();
-			check(Token.Symbol.RPAREN);
-			fun_def_opt();
-
-		} else if (lexAn.peekToken().symbol() == Token.Symbol.VAR) {
-			check(Token.Symbol.VAR);
-			check(Token.Symbol.IDENTIFIER);
-			check(Token.Symbol.ASSIGN);
-			initializers();
-
-		} else {
-			throw new Report.Error(lexAn.peekToken(), "Expected definition.");
-		}
-	}
-
-	private void fun_def_opt() {
-		if (lexAn.peekToken().symbol() == Token.Symbol.ASSIGN) {
-			check(Token.Symbol.ASSIGN);
-			statements();
-		}
-	}
-
-	private void def_opt() {
-		while (lexAn.peekToken().symbol() == Token.Symbol.FUN ||
-				lexAn.peekToken().symbol() == Token.Symbol.VAR) {
-			definition();
-		}
-	}
-
-	//PARAMETERS
-
-	private void parameters() {
-		trace("parameters");
-
-		if (lexAn.peekToken().symbol() == Token.Symbol.IDENTIFIER) {
-			check(Token.Symbol.IDENTIFIER);
-
-			while (lexAn.peekToken().symbol() == Token.Symbol.COMMA) {
-				check(Token.Symbol.COMMA);
-				check(Token.Symbol.IDENTIFIER);
-			}
-		}
-	}
-
-	//STATEMENTS
-
-	private void statements() {
-		trace("statements");
-
-		statement();
-
-		while (lexAn.peekToken().symbol() == Token.Symbol.SEMIC) {
-			check(Token.Symbol.SEMIC);
-
-			if (isStatementStart(lexAn.peekToken().symbol()))
-				statement();
-			else
-				break;
-		}
-	}
-
-	private void statement() {
-		trace("statement");
-
-		Token.Symbol sym = lexAn.peekToken().symbol();
-
-		if (sym == Token.Symbol.IF) {
-			check(Token.Symbol.IF);
-			expression();
-			check(Token.Symbol.THEN);
-
-			statements();
-			else_opt();
-			check(Token.Symbol.END);
-
-		} else if (sym == Token.Symbol.WHILE) {
-			check(Token.Symbol.WHILE);
-			expression();
-			check(Token.Symbol.DO);
-			statements();
-			check(Token.Symbol.END);
-
-		} else if (sym == Token.Symbol.LET) {
-			check(Token.Symbol.LET);
-			definition();
-			def_opt();
-			check(Token.Symbol.IN);
-			statements();
-			check(Token.Symbol.END);
-
-		} else {
-			expression();
-
-			if (lexAn.peekToken().symbol() == Token.Symbol.ASSIGN) {
-				check(Token.Symbol.ASSIGN);
-				expression();
-			}
-		}
-	}
-
-	private void else_opt() {
-		if (lexAn.peekToken().symbol() == Token.Symbol.ELSE) {
-			check(Token.Symbol.ELSE);
-			statements();
-		}
-	}
-
-	//EXPRESSIONS
-
-	private void expression() {
-		trace("expression");
-		disjunction();
-	}
-
-	private void disjunction() {
-		trace("disjunction");
-		conjunction();
-
-		while (lexAn.peekToken().symbol() == Token.Symbol.OR) {
-			check(Token.Symbol.OR);
-			conjunction();
-		}
-	}
-
-	private void conjunction() {
-		trace("conjunction");
-		comparison();
-
-		while (lexAn.peekToken().symbol() == Token.Symbol.AND) {
-			check(Token.Symbol.AND);
-			comparison();
-		}
-	}
-
-	private void comparison() {
-		trace("comparison");
-		additive();
-
-		Token.Symbol sym = lexAn.peekToken().symbol();
-
-		if (sym == Token.Symbol.EQU || sym == Token.Symbol.NEQ ||
-				sym == Token.Symbol.LTH || sym == Token.Symbol.GTH ||
-				sym == Token.Symbol.LEQ || sym == Token.Symbol.GEQ) {
-			check(sym);
-			additive();
-		}
-	}
-
-	private void additive() {
-		trace("additive");
-		multiplicative();
-
-		while (lexAn.peekToken().symbol() == Token.Symbol.ADD ||
-				lexAn.peekToken().symbol() == Token.Symbol.SUB) {
-			check(lexAn.peekToken().symbol());
-			multiplicative();
-		}
-	}
-
-	private void multiplicative() {
-		trace("multiplicative");
-		prefix();
-
-		while (lexAn.peekToken().symbol() == Token.Symbol.MUL ||
-				lexAn.peekToken().symbol() == Token.Symbol.DIV ||
-				lexAn.peekToken().symbol() == Token.Symbol.MOD) {
-			check(lexAn.peekToken().symbol());
-			prefix();
-		}
-	}
-
-	private void prefix() {
-		trace("prefix");
-
-		if (lexAn.peekToken().symbol() == Token.Symbol.NOT ||
-				lexAn.peekToken().symbol() == Token.Symbol.ADD ||
-				lexAn.peekToken().symbol() == Token.Symbol.SUB ||
-				lexAn.peekToken().symbol() == Token.Symbol.PTR) {
-			check(lexAn.peekToken().symbol());
-			prefix();
-		} else {
-			postfix();
-		}
-	}
-
-	private void postfix() {
-		trace("postfix");
-		primary_exp();
-
-		//Check if correct postfix operator implementation
-		if (lexAn.peekToken().symbol() == Token.Symbol.PTR) {
-			check(Token.Symbol.PTR);
-		}
-	}
-
-	//PRIMARY
-
-	private void primary_exp() {
-		trace("primary_exp");
-
-		Token.Symbol sym = lexAn.peekToken().symbol();
-
-		if (sym == Token.Symbol.LPAREN) {
-			check(Token.Symbol.LPAREN);
-			expression();
-			check(Token.Symbol.RPAREN);
-
-		} else if (sym == Token.Symbol.INTCONST ||
-				sym == Token.Symbol.CHARCONST ||
-				sym == Token.Symbol.STRINGCONST) {
-			check(sym);
-
-		} else if (sym == Token.Symbol.IDENTIFIER) {
-			check(Token.Symbol.IDENTIFIER);
-			exp_args_opt();
-
-		} else {
-			throw new Report.Error(lexAn.peekToken(), "Expected primary expression.");
-		}
-	}
-
-	private void exp_args_opt() {
-		if (lexAn.peekToken().symbol() == Token.Symbol.LPAREN) {
-			check(Token.Symbol.LPAREN);
-			arguments();
-			check(Token.Symbol.RPAREN);
-		}
-	}
-
-	private void arguments() {
-		trace("arguments");
-
-		if (isExpressionStart(lexAn.peekToken().symbol())) {
-			expression();
-
-			while (lexAn.peekToken().symbol() == Token.Symbol.COMMA) {
-				check(Token.Symbol.COMMA);
-				expression();
-			}
-		}
-	}
-
-	//INITIALIZERS
-
-	private void initializers() {
-		trace("initializers");
-
-		initializer();
-
-		while (lexAn.peekToken().symbol() == Token.Symbol.COMMA) {
-			check(Token.Symbol.COMMA);
-			initializer();
-		}
-	}
-
-	private void initializer() {
-		trace("initializer");
-
-		konst();
-
-		if (lexAn.peekToken().symbol() == Token.Symbol.MUL) {
-			check(Token.Symbol.MUL);
-			konst();
-		}
-	}
-
-	private void konst() {
-		trace("const");
-
-		Token.Symbol sym = lexAn.peekToken().symbol();
-
-		if (sym == Token.Symbol.INTCONST ||
-				sym == Token.Symbol.CHARCONST ||
-				sym == Token.Symbol.STRINGCONST) {
-			check(sym);
-		} else {
-			throw new Report.Error(lexAn.peekToken(), "Expected constant.");
-		}
-	}
-
+	/*
+    //	------------------------ OLD CODE ----------------------------
+        //PROGRAM
+        private void program() {
+            trace("program");
+
+            while (lexAn.peekToken().symbol() == Token.Symbol.FUN ||
+                    lexAn.peekToken().symbol() == Token.Symbol.VAR) {
+                definition();
+
+                if (lexAn.peekToken().symbol() == Token.Symbol.SEMIC)
+                    check(Token.Symbol.SEMIC);
+            }
+        }
+
+        //DEFINITION
+        private void definition() {
+            trace("definition");
+
+            if (lexAn.peekToken().symbol() == Token.Symbol.FUN) {
+                check(Token.Symbol.FUN);
+                check(Token.Symbol.IDENTIFIER);
+                check(Token.Symbol.LPAREN);
+                parameters();
+                check(Token.Symbol.RPAREN);
+                fun_def_opt();
+
+            } else if (lexAn.peekToken().symbol() == Token.Symbol.VAR) {
+                check(Token.Symbol.VAR);
+                check(Token.Symbol.IDENTIFIER);
+                check(Token.Symbol.ASSIGN);
+                initializers();
+
+            } else {
+                throw new Report.Error(lexAn.peekToken(), "Expected definition.");
+            }
+        }
+
+        private void fun_def_opt() {
+            if (lexAn.peekToken().symbol() == Token.Symbol.ASSIGN) {
+                check(Token.Symbol.ASSIGN);
+                statements();
+            }
+        }
+
+        private void def_opt() {
+            while (lexAn.peekToken().symbol() == Token.Symbol.FUN ||
+                    lexAn.peekToken().symbol() == Token.Symbol.VAR) {
+                definition();
+            }
+        }
+
+        //PARAMETERS
+
+        private void parameters() {
+            trace("parameters");
+
+            if (lexAn.peekToken().symbol() == Token.Symbol.IDENTIFIER) {
+                check(Token.Symbol.IDENTIFIER);
+
+                while (lexAn.peekToken().symbol() == Token.Symbol.COMMA) {
+                    check(Token.Symbol.COMMA);
+                    check(Token.Symbol.IDENTIFIER);
+                }
+            }
+        }
+
+        //STATEMENTS
+
+        private void statements() {
+            trace("statements");
+
+            statement();
+
+            while (lexAn.peekToken().symbol() == Token.Symbol.SEMIC) {
+                check(Token.Symbol.SEMIC);
+
+                if (isStatementStart(lexAn.peekToken().symbol()))
+                    statement();
+                else
+                    break;
+            }
+        }
+
+        private void statement() {
+            trace("statement");
+
+            Token.Symbol sym = lexAn.peekToken().symbol();
+
+            if (sym == Token.Symbol.IF) {
+                check(Token.Symbol.IF);
+                expression();
+                check(Token.Symbol.THEN);
+
+                statements();
+                else_opt();
+                check(Token.Symbol.END);
+
+            } else if (sym == Token.Symbol.WHILE) {
+                check(Token.Symbol.WHILE);
+                expression();
+                check(Token.Symbol.DO);
+                statements();
+                check(Token.Symbol.END);
+
+            } else if (sym == Token.Symbol.LET) {
+                check(Token.Symbol.LET);
+                definition();
+                def_opt();
+                check(Token.Symbol.IN);
+                statements();
+                check(Token.Symbol.END);
+
+            } else {
+                expression();
+
+                if (lexAn.peekToken().symbol() == Token.Symbol.ASSIGN) {
+                    check(Token.Symbol.ASSIGN);
+                    expression();
+                }
+            }
+        }
+
+        private void else_opt() {
+            if (lexAn.peekToken().symbol() == Token.Symbol.ELSE) {
+                check(Token.Symbol.ELSE);
+                statements();
+            }
+        }
+
+        //EXPRESSIONS
+
+        private void expression() {
+            trace("expression");
+            disjunction();
+        }
+
+        private void disjunction() {
+            trace("disjunction");
+            conjunction();
+
+            while (lexAn.peekToken().symbol() == Token.Symbol.OR) {
+                check(Token.Symbol.OR);
+                conjunction();
+            }
+        }
+
+        private void conjunction() {
+            trace("conjunction");
+            comparison();
+
+            while (lexAn.peekToken().symbol() == Token.Symbol.AND) {
+                check(Token.Symbol.AND);
+                comparison();
+            }
+        }
+
+        private void comparison() {
+            trace("comparison");
+            additive();
+
+            Token.Symbol sym = lexAn.peekToken().symbol();
+
+            if (sym == Token.Symbol.EQU || sym == Token.Symbol.NEQ ||
+                    sym == Token.Symbol.LTH || sym == Token.Symbol.GTH ||
+                    sym == Token.Symbol.LEQ || sym == Token.Symbol.GEQ) {
+                check(sym);
+                additive();
+            }
+        }
+
+        private void additive() {
+            trace("additive");
+            multiplicative();
+
+            while (lexAn.peekToken().symbol() == Token.Symbol.ADD ||
+                    lexAn.peekToken().symbol() == Token.Symbol.SUB) {
+                check(lexAn.peekToken().symbol());
+                multiplicative();
+            }
+        }
+
+        private void multiplicative() {
+            trace("multiplicative");
+            prefix();
+
+            while (lexAn.peekToken().symbol() == Token.Symbol.MUL ||
+                    lexAn.peekToken().symbol() == Token.Symbol.DIV ||
+                    lexAn.peekToken().symbol() == Token.Symbol.MOD) {
+                check(lexAn.peekToken().symbol());
+                prefix();
+            }
+        }
+
+        private void prefix() {
+            trace("prefix");
+
+            if (lexAn.peekToken().symbol() == Token.Symbol.NOT ||
+                    lexAn.peekToken().symbol() == Token.Symbol.ADD ||
+                    lexAn.peekToken().symbol() == Token.Symbol.SUB ||
+                    lexAn.peekToken().symbol() == Token.Symbol.PTR) {
+                check(lexAn.peekToken().symbol());
+                prefix();
+            } else {
+                postfix();
+            }
+        }
+
+        private void postfix() {
+            trace("postfix");
+            primary_exp();
+
+            //Check if correct postfix operator implementation
+            if (lexAn.peekToken().symbol() == Token.Symbol.PTR) {
+                check(Token.Symbol.PTR);
+            }
+        }
+
+        //PRIMARY
+
+        private void primary_exp() {
+            trace("primary_exp");
+
+            Token.Symbol sym = lexAn.peekToken().symbol();
+
+            if (sym == Token.Symbol.LPAREN) {
+                check(Token.Symbol.LPAREN);
+                expression();
+                check(Token.Symbol.RPAREN);
+
+            } else if (sym == Token.Symbol.INTCONST ||
+                    sym == Token.Symbol.CHARCONST ||
+                    sym == Token.Symbol.STRINGCONST) {
+                check(sym);
+
+            } else if (sym == Token.Symbol.IDENTIFIER) {
+                check(Token.Symbol.IDENTIFIER);
+                exp_args_opt();
+
+            } else {
+                throw new Report.Error(lexAn.peekToken(), "Expected primary expression.");
+            }
+        }
+
+        private void exp_args_opt() {
+            if (lexAn.peekToken().symbol() == Token.Symbol.LPAREN) {
+                check(Token.Symbol.LPAREN);
+                arguments();
+                check(Token.Symbol.RPAREN);
+            }
+        }
+
+        private void arguments() {
+            trace("arguments");
+
+            if (isExpressionStart(lexAn.peekToken().symbol())) {
+                expression();
+
+                while (lexAn.peekToken().symbol() == Token.Symbol.COMMA) {
+                    check(Token.Symbol.COMMA);
+                    expression();
+                }
+            }
+        }
+
+        //INITIALIZERS
+
+        private void initializers() {
+            trace("initializers");
+
+            initializer();
+
+            while (lexAn.peekToken().symbol() == Token.Symbol.COMMA) {
+                check(Token.Symbol.COMMA);
+                initializer();
+            }
+        }
+
+        private void initializer() {
+            trace("initializer");
+
+            konst();
+
+            if (lexAn.peekToken().symbol() == Token.Symbol.MUL) {
+                check(Token.Symbol.MUL);
+                konst();
+            }
+        }
+
+        private void konst() {
+            trace("const");
+
+            Token.Symbol sym = lexAn.peekToken().symbol();
+
+            if (sym == Token.Symbol.INTCONST ||
+                    sym == Token.Symbol.CHARCONST ||
+                    sym == Token.Symbol.STRINGCONST) {
+                check(sym);
+            } else {
+                throw new Report.Error(lexAn.peekToken(), "Expected constant.");
+            }
+        }
+        */
 	//HELPERS
 	private boolean isExpressionStart(Token.Symbol sym) {
 		return sym == Token.Symbol.IDENTIFIER ||
