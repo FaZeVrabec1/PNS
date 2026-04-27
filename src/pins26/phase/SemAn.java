@@ -516,7 +516,82 @@ public class SemAn {
 		 */
 		private class ResolverVisitor implements AST.FullVisitor<Object, Object> {
 
-		    // TODO
+			// check is valid
+			@Override
+			public Object visit(final AST.AssignStmt assignStmt, final Object arg) {
+
+				// process attrLVal on both sides first
+				assignStmt.dstExpr.accept(this, arg);
+				assignStmt.srcExpr.accept(this, arg);
+
+				// check if leftside is valid
+				Boolean isLVal = attrAST.attrLVal.get(assignStmt.dstExpr);
+				if (isLVal == null || !isLVal) {
+					throw new Report.Error(
+							attrAST.attrLoc.get(assignStmt.dstExpr),
+							"Left side of assignment is not an l-value."
+					);
+				}
+				return null;
+			}
+
+			// identifiers
+			@Override
+			public Object visit(final AST.VarExpr varExpr, final Object arg) {
+				attrAST.attrLVal.put(varExpr, true);
+				return null;
+			}
+
+			// prefix, postfix
+			@Override
+			public Object visit(final AST.UnExpr unExpr, final Object arg) {
+
+				// process expression recursivly
+				unExpr.expr.accept(this, arg);
+
+				// check if unExpr is ^
+				boolean isLVal = false;
+				if (unExpr.oper == AST.UnExpr.Oper.VALUEAT) {
+					isLVal = true;
+				}
+
+				// store result
+				attrAST.attrLVal.put(unExpr, isLVal);
+
+				return null;
+			}
+
+			// arithmetic, logical, comparison
+			@Override
+			public Object visit(final AST.BinExpr binExpr, final Object arg) {
+
+				// process both sides
+				binExpr.fstExpr.accept(this, arg);
+				binExpr.sndExpr.accept(this, arg);
+
+				// Binary expressions cannot appear on left side of assignment
+				attrAST.attrLVal.put(binExpr, false);
+
+				return null;
+			}
+
+			// Constants
+			@Override
+			public Object visit(final AST.AtomExpr atomExpr, final Object arg) {
+				attrAST.attrLVal.put(atomExpr, false);
+				return null;
+			}
+
+			// functions
+			@Override
+			public Object visit(final AST.CallExpr callExpr, final Object arg) {
+
+				// process arguments first
+				callExpr.args.accept(this, arg);
+
+				attrAST.attrLVal.put(callExpr, false);
+				return null;
+			}
 
 		}
 

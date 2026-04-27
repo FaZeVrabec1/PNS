@@ -1,30 +1,21 @@
-// semicolons come after statements only
-
-var x = 5                // var defs no semicolon
-var y = 2 * 3, 4, 5
-
-fun add(a, b) =         // func def no semicolon
-    a + b;                // statement in function, semicolon
-
-fun main() =        // func def
-    let                // let is a statement containing definitions and statements
-        var z = 1, 2, 3        // var definition, no semicolon
-        fun inc(n) =         // func def, no semicolon
-            n + 1;            // statement in func body, semicolon
-    in
-        x = add(x, y);        // statements in let statement, semicolon
-        y = inc(y);
-
-        if x > y then        // if is also a statement containing statements
-            x = x - y;        // statement in if, has semic
-        else
-            y = y - x;
-        end;                // end of if statement, semicolon
-
-        while x < 20 do        // while is same as if
-            x = x + 1;
-        end;
-    end;        // end of larger let statement, semicolon
-
-    y() =^ b;
-    
+fun a(b) =
+  b = 1;
+  b^ = 1;
+  // ^(b^) = 1; // fails correctly
+  (^(b^))^ = 1;
+  (b) = 1;
+  ((b)) = 1;
+  (b^) = 1;
+  ((b^)) = 1;
+  //(^b) = 1;         // fails correctly
+  //!b = 1;           // fails correctly
+  //-(b) = 1;         // fails correctly
+  //!(b^) = 1;        // fails correctly
+  //b + 1 = 1;        // FAIL
+  (b + 1)^ = 1;     // PASS or FAIL depending on semantics
+  // f() = 1;          // FAIL
+  // f()^ = 1;         // same note as above (likely FAIL later in typing)
+  // (((b)))^^ = 1;    // PASS
+  // ((((b^))))^ = 1;  // PASS
+  // ((((^b)))) = 1;   // FAIL
+  b;
