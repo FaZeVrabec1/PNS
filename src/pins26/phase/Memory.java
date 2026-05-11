@@ -202,12 +202,138 @@ public class Memory {
 		/** Obiskovalec, ki izracuna pomnilnisko predstavitev. */
 		private class MemoryVisitor implements AST.FullVisitor<Object, Object> {
 
-			@SuppressWarnings({ "doclint:missing" })
-			public MemoryVisitor() {
+			private int currentDepth = 0;
+			private int localOffset = 0;
+			private List<Mem.RelAccess> currentDebugVars = null;
+
+			@Override
+			public Object visit(AST.Nodes<? extends AST.Node> nodes, Object arg) {
+				for (AST.Node node : nodes) {
+					node.accept(this, null);
+				}
+				return null;
 			}
 
-		/*** TODO ***/
+			@Override
+			public Object visit(AST.FunDef funDef, Object arg) {
+				int prevDepth = currentDepth;
+				int prevLocalOffset = localOffset;
+				List<Mem.RelAccess> prevDebugVars = currentDebugVars;
 
+				currentDepth++;
+				localOffset = 8;
+				currentDebugVars = new ArrayList<>();
+
+				int parOffset = 4;
+				List<Mem.RelAccess> debugPars = new ArrayList<>();
+				for (AST.ParDef par : funDef.pars) {
+					Mem.RelAccess access = new Mem.RelAccess(
+							parOffset,
+							currentDepth,
+							4,
+							null,
+							par.name
+					);
+					attrAST.attrParAccess.put(par, access);
+					debugPars.add(access);
+					parOffset += 4;
+				}
+
+				funDef.stmts.accept(this, null);
+
+				Mem.Frame frame = new Mem.Frame(
+						funDef.name,
+						currentDepth,
+						parOffset,
+						localOffset,
+						debugPars,
+						currentDebugVars
+				);
+				attrAST.attrFrame.put(funDef, frame);
+
+				currentDebugVars = prevDebugVars;
+				currentDepth = prevDepth;
+				localOffset = prevLocalOffset;
+				return null;
+			}
+
+			@Override
+			public Object visit(AST.VarDef varDef, Object arg) {
+				int size = computeVarSize(varDef.inits);
+				if (currentDepth == 0) {
+					String label = "__" + varDef.name;
+					Mem.AbsAccess access = new Mem.AbsAccess(
+							label,
+							size,
+							evaluateInits(varDef.inits)
+					);
+					attrAST.attrVarAccess.put(varDef, access);
+				} else {
+					int offset = -localOffset - size;
+					Mem.RelAccess access = new Mem.RelAccess(
+							offset,
+							currentDepth,
+							size,
+							evaluateInits(varDef.inits),
+							varDef.name
+					);
+					attrAST.attrVarAccess.put(varDef, access);
+					if (currentDebugVars != null) {
+						currentDebugVars.add(access);
+					}
+					localOffset += size;
+				}
+				return null;
+			}
+
+			@Override
+			public Object visit(AST.LetStmt letStmt, Object arg) {
+				for (AST.MainDef def : letStmt.defs) {
+					def.accept(this, null);
+				}
+				letStmt.stmts.accept(this, null);
+				return null;
+			}
+
+			@Override
+			public Object visit(AST.ExprStmt exprStmt, Object arg) {
+				exprStmt.expr.accept(this, null);
+				return null;
+			}
+
+			private Vector<Integer> evaluateInits(AST.Nodes<AST.Init> inits) {
+				Vector<Integer> result = new Vector<>();
+				result.add(inits.size());
+				for (AST.Init init : inits) {
+					int num = Memory.decodeIntConst(init.num, attrAST.attrLoc.get(init.num));
+					int len = switch (init.value.type) {
+						case INTCONST, CHRCONST -> 1;
+						case STRCONST -> Memory.decodeStrConst(init.value, attrAST.attrLoc.get(init.value)).size();
+					};
+					result.add(num);
+					result.add(len);
+					if (init.value.type == AST.AtomExpr.Type.STRCONST) {
+						result.addAll(Memory.decodeStrConst(init.value, attrAST.attrLoc.get(init.value)));
+					} else {
+						result.add(Memory.decodeIntConst(init.value, attrAST.attrLoc.get(init.value)));
+					}
+				}
+				return result;
+			}
+
+			private int computeVarSize(AST.Nodes<AST.Init> inits) {
+				int total = 0;
+				for (AST.Init init : inits) {
+					int num = Memory.decodeIntConst(init.num, attrAST.attrLoc.get(init.num));
+					int len = switch (init.value.type) {
+						case INTCONST, CHRCONST -> 1;
+						case STRCONST -> Memory.decodeStrConst(init.value, attrAST.attrLoc.get(init.value)).size();
+					};
+					total += num * len * 4;
+				}
+				if (total == 0) total = 4;
+				return total;
+			}
 		}
 
 	}
