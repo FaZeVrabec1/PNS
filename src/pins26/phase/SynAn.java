@@ -527,10 +527,9 @@ public class SynAn implements AutoCloseable {
 	private List<AST.Init> parseInitializers() {
 
 		List<AST.Init> list = new Vector<>();
-		Token t = lexAn.peekToken();
 		list.add(parseInitializer());
 
-		while (t.symbol() == Token.Symbol.COMMA) {
+		while (lexAn.peekToken().symbol() == Token.Symbol.COMMA) {
 			check(Token.Symbol.COMMA);
 			list.add(parseInitializer());
 		}

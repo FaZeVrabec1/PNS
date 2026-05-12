@@ -291,6 +291,7 @@ public class LexAn implements AutoCloseable {
 			startLine = buffCharLine;
 			startColumn = buffCharColumn;
 			lexeme = new StringBuilder();
+			lexeme.append('"');
 			nextChar();
 
 			while (buffChar != '"'){
@@ -306,6 +307,8 @@ public class LexAn implements AutoCloseable {
 			}
 
 			nextChar();
+
+			lexeme.append('"');
 
 			buffToken = new Token(new Report.Location(startLine, startColumn, buffCharLine, buffCharColumn), Token.Symbol.STRINGCONST, lexeme.toString());
 			return;
@@ -393,7 +396,7 @@ public class LexAn implements AutoCloseable {
 				throw new Report.Error(new Report.Location(startLine, startColumn), "Unknown symbol: " + (char) buffChar);
 		}
 
-		buffToken = new Token(new Report.Location(startLine, startColumn), symbol, lexeme.toString());
+		buffToken = new Token(new Report.Location(startLine, startColumn), symbol, lexemeStr);
 		return;
 
 	}

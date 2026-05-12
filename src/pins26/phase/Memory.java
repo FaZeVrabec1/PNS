@@ -389,6 +389,8 @@ public class Memory {
 	public static Vector<Integer> decodeStrConst(final AST.AtomExpr strAtomExpr, final Report.Locatable loc) {
 		final Vector<Integer> value = new Vector<Integer>();
 		for (int c = 1; c < strAtomExpr.value.length() - 1; c++) {
+//		for (int c = 0; c < strAtomExpr.value.length(); c++) {
+			char testc = strAtomExpr.value.charAt(0);
 			switch (strAtomExpr.value.charAt(c)) {
 			case '\\':
 				switch (strAtomExpr.value.charAt(c + 1)) {
