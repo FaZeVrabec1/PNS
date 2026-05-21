@@ -162,15 +162,20 @@ public class SynAn implements AutoCloseable {
 	private List<AST.Stmt> parseStatements() {
 
 		List<AST.Stmt> stmts = new Vector<>();
-		stmts.add(parseStatement());
-		check(Token.Symbol.SEMIC);
+//		stmts.add(parseStatement());
+//		check(Token.Symbol.SEMIC);
 
 		while (isStatementStart(lexAn.peekToken().symbol())) {
 			stmts.add(parseStatement());
-			check(Token.Symbol.SEMIC);
+
+			//new code
+			if (lexAn.peekToken().symbol() == Token.Symbol.SEMIC)
+				check(Token.Symbol.SEMIC);
+			else
+				break;
+
+//			check(Token.Symbol.SEMIC);
 		}
-
-
 		return stmts;
 	}
 
