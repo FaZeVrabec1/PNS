@@ -1,1 +1,2 @@
-var x = "test"
+//fun f(i,j)=g(i+j+m)+n;
+fun g(i)=i^=3;f(i,i+n)==(i^-'0');

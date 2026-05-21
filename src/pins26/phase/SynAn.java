@@ -172,6 +172,8 @@ public class SynAn implements AutoCloseable {
 			}
 		}
 
+		check(Token.Symbol.SEMIC);
+
 		return stmts;
 	}
 

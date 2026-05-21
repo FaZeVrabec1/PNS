@@ -159,7 +159,7 @@ public class LexAn implements AutoCloseable {
 
 		// End of file
 		if (buffChar == -1) {
-			buffToken = new Token(new Report.Location(buffCharLine, buffCharColumn), Token.Symbol.EOF, "");
+			buffToken = new Token(new Report.Location(buffCharLine, buffCharColumn), Token.Symbol.EOF, "$");
 			return;
 		}
 
