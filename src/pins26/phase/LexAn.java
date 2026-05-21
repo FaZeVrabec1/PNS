@@ -413,6 +413,8 @@ public class LexAn implements AutoCloseable {
 		return buffToken;
 	}
 
+	private Token buffToken2 = null;
+
 	/**
 	 * Vrne trenutni leksikalni simbol, ki preide v lastnistvo klicoce kode.
 	 * 

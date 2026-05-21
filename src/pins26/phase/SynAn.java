@@ -81,6 +81,8 @@ public class SynAn implements AutoCloseable {
 			AST.MainDef def = parseDefinition();
 			defs.add(def);
 
+//			check(Token.Symbol.SEMIC);
+
 			if (lexAn.peekToken().symbol() == Token.Symbol.SEMIC)
 				check(Token.Symbol.SEMIC);
 		}
@@ -161,18 +163,13 @@ public class SynAn implements AutoCloseable {
 
 		List<AST.Stmt> stmts = new Vector<>();
 		stmts.add(parseStatement());
+		check(Token.Symbol.SEMIC);
 
-		while (lexAn.peekToken().symbol() == Token.Symbol.SEMIC) {
+		while (isStatementStart(lexAn.peekToken().symbol())) {
+			stmts.add(parseStatement());
 			check(Token.Symbol.SEMIC);
-
-			if (isStatementStart(lexAn.peekToken().symbol())) {
-				stmts.add(parseStatement());
-			} else {
-				break;
-			}
 		}
 
-		check(Token.Symbol.SEMIC);
 
 		return stmts;
 	}
@@ -912,6 +909,7 @@ public class SynAn implements AutoCloseable {
 				sym == Token.Symbol.WHILE ||
 				sym == Token.Symbol.LET;
 	}
+
 
 	private void trace(String msg) {
 		System.out.println(msg);
