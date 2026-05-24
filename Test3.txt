@@ -1,21 +1,2 @@
-fun a(b) =
-  b = 1;
-  b^ = 1;
-  // ^(b^) = 1; // fails correctly
-  (^(b^))^ = 1;
-  (b) = 1;
-  ((b)) = 1;
-  (b^) = 1;
-  ((b^)) = 1;
-  //(^b) = 1;         // fails correctly
-  //!b = 1;           // fails correctly
-  //-(b) = 1;         // fails correctly
-  //!(b^) = 1;        // fails correctly
-  //b + 1 = 1;        // FAIL
-  (b + 1)^ = 1;     // PASS or FAIL depending on semantics
-  // f() = 1;          // FAIL
-  // f()^ = 1;         // same note as above (likely FAIL later in typing)
-  // (((b)))^^ = 1;    // PASS
-  // ((((b^))))^ = 1;  // PASS
-  // ((((^b)))) = 1;   // FAIL
-  b;
+var b = "dolor sit", 2
+var table = 6 * 0

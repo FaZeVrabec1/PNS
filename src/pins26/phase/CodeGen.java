@@ -211,10 +211,12 @@ public class CodeGen {
 					if (abs.inits != null && !abs.inits.isEmpty()) {
 
 						for (int value : abs.inits) {
-							data.add(
-									new PDM.DATA(value,
-											attrAST.attrLoc.get(varDef))
-							);
+							data.add(new PDM.DATA(value, attrAST.attrLoc.get(varDef)));
+						}
+
+						int words = abs.size / 4;
+						for (int i = abs.inits == null ? 0 : abs.inits.size(); i < words; i++) {
+							data.add(new PDM.DATA(0, attrAST.attrLoc.get(varDef)));
 						}
 
 					} else {
@@ -246,12 +248,15 @@ public class CodeGen {
 			@Override
 			public List<PDM.CodeInstr> visit(AST.AssignStmt assignStmt, Mem.Frame frame) {
 				List<PDM.CodeInstr> code = new Vector<>();
-				// Evaluate right-hand side (value)
-				code.addAll(assignStmt.srcExpr.accept(this, frame));
-				// Evaluate left-hand side (address)
+
+				// PINS'26: najprej naslov
 				code.addAll(genLValue(assignStmt.dstExpr, frame));
-				// Save value to address
+
+				// potem vrednost
+				code.addAll(assignStmt.srcExpr.accept(this, frame));
+
 				code.add(new PDM.SAVE(attrAST.attrLoc.get(assignStmt)));
+
 				attrAST.attrCode.put(assignStmt, code);
 				return code;
 			}
@@ -376,7 +381,7 @@ public class CodeGen {
 						code.addAll(genLValue(unExpr.expr, frame));
 					}
 					case VALUEAT -> {
-						code.addAll(unExpr.expr.accept(this, frame));
+						code.addAll(genLValue(unExpr.expr, frame));
 						code.add(new PDM.LOAD(attrAST.attrLoc.get(unExpr)));
 					}
 				}
@@ -431,9 +436,8 @@ public class CodeGen {
 				List<PDM.CodeInstr> code = new Vector<>();
 				AST.FunDef funDef = (AST.FunDef) attrAST.attrDef.get(callExpr);
 
-				// Push arguments (right-to-left)
 				List<AST.Expr> args = callExpr.args.getAll();
-				for (int i = args.size() - 1; i >= 0; i--) {
+				for (int i = 0; i < args.size(); i++) {
 					code.addAll(args.get(i).accept(this, frame));
 				}
 
