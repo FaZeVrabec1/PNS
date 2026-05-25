@@ -185,14 +185,22 @@ public class CodeGen {
 				code.add(new PDM.LABEL(funDef.name, attrAST.attrLoc.get(funDef)));
 
 				// Allocate space for locals (varsSize)
-				if (myFrame.varsSize > 0)
+				if (myFrame.varsSize > 0) {
+					code.add(new PDM.PUSH(-myFrame.varsSize,attrAST.attrLoc.get(funDef)));
+
 					code.add(new PDM.POPN(attrAST.attrLoc.get(funDef)));
+				}
 
 				// Generate code for statements
-				code.addAll(funDef.stmts.accept(this, myFrame));
+				code.addAll(funDef.stmts.accept(this,myFrame));
 
-				// Return from function (if not void)
-				code.add(new PDM.RETN(myFrame, attrAST.attrLoc.get(funDef)));
+				// default result
+				code.add(new PDM.PUSH(0,attrAST.attrLoc.get(funDef)));
+
+				// parsSize for RETN
+				code.add(new PDM.PUSH(myFrame.parsSize,attrAST.attrLoc.get(funDef)));
+
+				code.add(new PDM.RETN(myFrame,attrAST.attrLoc.get(funDef)));
 
 				attrAST.attrCode.put(funDef, code);
 				return code;
@@ -220,15 +228,7 @@ public class CodeGen {
 						}
 
 					} else {
-
-						int words = abs.size / 4;
-
-						for (int i = 0; i < words; i++) {
-							data.add(
-									new PDM.DATA(0,
-											attrAST.attrLoc.get(varDef))
-							);
-						}
+						data.add(new PDM.SIZE(abs.size,attrAST.attrLoc.get(varDef)));
 					}
 
 					attrAST.attrData.put(varDef, data);
@@ -240,7 +240,9 @@ public class CodeGen {
 			public List<PDM.CodeInstr> visit(AST.ExprStmt exprStmt, Mem.Frame frame) {
 				List<PDM.CodeInstr> code = exprStmt.expr.accept(this, frame);
 				// Remove result from stack
+				code.add(new PDM.PUSH(4,attrAST.attrLoc.get(exprStmt)));
 				code.add(new PDM.POPN(attrAST.attrLoc.get(exprStmt)));
+
 				attrAST.attrCode.put(exprStmt, code);
 				return code;
 			}
@@ -270,7 +272,6 @@ public class CodeGen {
 
 				// Condition
 				code.addAll(ifStmt.cond.accept(this, frame));
-				code.add(new PDM.PUSH(0, attrAST.attrLoc.get(ifStmt)));
 				code.add(new PDM.NAME(thenLabel, attrAST.attrLoc.get(ifStmt)));
 				code.add(new PDM.NAME(elseLabel, attrAST.attrLoc.get(ifStmt)));
 				code.add(new PDM.CJMP(attrAST.attrLoc.get(ifStmt)));
@@ -302,8 +303,8 @@ public class CodeGen {
 				// Condition at top
 				code.add(new PDM.LABEL(condLabel, attrAST.attrLoc.get(whileStmt)));
 				code.addAll(whileStmt.cond.accept(this, frame));
-				code.add(new PDM.NAME(endLabel, attrAST.attrLoc.get(whileStmt)));
 				code.add(new PDM.NAME(bodyLabel, attrAST.attrLoc.get(whileStmt)));
+				code.add(new PDM.NAME(endLabel, attrAST.attrLoc.get(whileStmt)));
 				code.add(new PDM.CJMP(attrAST.attrLoc.get(whileStmt)));
 
 				// Body
@@ -422,9 +423,10 @@ public class CodeGen {
 					code.add(new PDM.NAME(abs.name, attrAST.attrLoc.get(varExpr)));
 					code.add(new PDM.LOAD(attrAST.attrLoc.get(varExpr)));
 				} else if (access instanceof Mem.RelAccess rel) {
-					code.add(new PDM.PUSH(rel.offset, attrAST.attrLoc.get(varExpr)));
-					code.add(new PDM.REGN(PDM.REGN.Reg.FP, attrAST.attrLoc.get(varExpr)));
-					code.add(new PDM.OPER(PDM.OPER.Oper.ADD, attrAST.attrLoc.get(varExpr)));
+					code.add(new PDM.REGN(PDM.REGN.Reg.FP,attrAST.attrLoc.get(varExpr)));
+					code.add(new PDM.PUSH(rel.offset,attrAST.attrLoc.get(varExpr)));
+					code.add(new PDM.OPER(PDM.OPER.Oper.ADD,attrAST.attrLoc.get(varExpr)));
+
 					code.add(new PDM.LOAD(attrAST.attrLoc.get(varExpr)));
 				}
 				attrAST.attrCode.put(varExpr, code);
@@ -460,9 +462,9 @@ public class CodeGen {
 					if (access instanceof Mem.AbsAccess abs) {
 						code.add(new PDM.NAME(abs.name, attrAST.attrLoc.get(varExpr)));
 					} else if (access instanceof Mem.RelAccess rel) {
-						code.add(new PDM.PUSH(rel.offset, attrAST.attrLoc.get(varExpr)));
-						code.add(new PDM.REGN(PDM.REGN.Reg.FP, attrAST.attrLoc.get(varExpr)));
-						code.add(new PDM.OPER(PDM.OPER.Oper.ADD, attrAST.attrLoc.get(varExpr)));
+						code.add(new PDM.REGN(PDM.REGN.Reg.FP,attrAST.attrLoc.get(varExpr)));
+						code.add(new PDM.PUSH(rel.offset,attrAST.attrLoc.get(varExpr)));
+						code.add(new PDM.OPER(PDM.OPER.Oper.ADD,attrAST.attrLoc.get(varExpr)));
 					}
 				} else if (expr instanceof AST.UnExpr unExpr && unExpr.oper == AST.UnExpr.Oper.VALUEAT) {
 					code.addAll(unExpr.expr.accept(this, frame));
