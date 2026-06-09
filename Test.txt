@@ -1,7 +1,16 @@
-var m=0
-fun f(i,j)=g(i+j+m)+n;
-fun g(i)=i^=3;f(i,i+n)==(i^-'0');
-var n=1
-var hw="Hello,World."
-fun b()=3;
-var balls = "test\n"
+fun fibrec(n)=
+	let var f1=1 var f2=1 var i=0
+	in	i=2;while i < n do
+			let var f=0 in f=f1+f2;f1=f2;f2=f; end;
+			i=i+1;
+		end;f2;
+	end;
+
+fun main()=
+    putint(fibrec(7));
+    putstr("\n\00");
+    putstr("test\n\00");
+
+fun exit(exitvalue)
+fun putint(intvalue)
+fun putstr(straddr)

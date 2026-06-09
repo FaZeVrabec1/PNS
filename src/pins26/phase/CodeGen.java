@@ -17,7 +17,7 @@ public class CodeGen {
 	/**
 	 * Abstraktno sintaksno drevo z dodanimi atributi izracuna pomnilniske
 	 * predstavitve.
-	 * 
+	 *
 	 * Atributi:
 	 * <ol>
 	 * <li>({@link Abstr}) lokacija kode, ki pripada posameznemu vozliscu;</li>
@@ -40,14 +40,14 @@ public class CodeGen {
 
 		/**
 		 * Ustvari novo abstraktno sintaksno drevo z dodanimi atributi generiranja kode.
-		 * 
+		 *
 		 * @param attrAST  Abstraktno sintaksno drevo z dodanimi atributi pomnilniske
 		 *                 predstavitve.
 		 * @param attrCode Attribut: seznam ukazov, ki predstavljajo kodo programa.
 		 * @param attrData Attribut: seznam ukazov, ki predstavljajo podatke programa.
 		 */
 		public AttrAST(final Memory.AttrAST attrAST, final Map<AST.Node, List<PDM.CodeInstr>> attrCode,
-				final Map<AST.Node, List<PDM.DataInstr>> attrData) {
+					   final Map<AST.Node, List<PDM.DataInstr>> attrData) {
 			super(attrAST);
 			this.attrCode = attrCode;
 			this.attrData = attrData;
@@ -55,7 +55,7 @@ public class CodeGen {
 
 		/**
 		 * Ustvari novo abstraktno sintaksno drevo z dodanimi atributi generiranja kode.
-		 * 
+		 *
 		 * @param attrAST Abstraktno sintaksno drevo z dodanimi atributi generiranja
 		 *                kode.
 		 */
@@ -110,7 +110,7 @@ public class CodeGen {
 
 	/**
 	 * Izracuna kodo programa
-	 * 
+	 *
 	 * @param memoryAttrAST Abstraktno sintaksno drevo z dodanimi atributi izracuna
 	 *                      pomnilniske predstavitve.
 	 * @return Abstraktno sintaksno drevo z dodanimi atributi izracuna pomnilniske
@@ -139,7 +139,7 @@ public class CodeGen {
 
 		/**
 		 * Ustvari nov generator kode v abstraktnem sintaksnem drevesu.
-		 * 
+		 *
 		 * @param attrAST Abstraktno sintaksno drevo z dodanimi atributi izracuna
 		 *                pomnilniske predstavitve.
 		 */
@@ -149,7 +149,7 @@ public class CodeGen {
 
 		/**
 		 * Sprozi generiranje kode v abstraktnem sintaksnem drevesu.
-		 * 
+		 *
 		 * @return Abstraktno sintaksno drevo z dodanimi atributi izracuna pomnilniske
 		 *         predstavitve.
 		 */
@@ -159,317 +159,313 @@ public class CodeGen {
 					Collections.unmodifiableMap(attrAST.attrData));
 		}
 
+		/**
+		 * Prevod:
+		 * fun sestej(a,b) = a+b
+		 *
+		 * LABEL sestej
+		 * 	REGN.FP
+		 * 	PUSH 4
+		 * 	OPER.ADD
+		 * 	LOAD
+		 * 	REGN.FP
+		 * 	PUSH 8
+		 * 	OPER.ADD
+		 * 	LOAD
+		 * 	OPER.ADD
+		 * 	PUSH 8
+		 * 	RETN
+		 *
+		 * fun zmnoži(a,b) = let var c = 5 in a*b*c end
+		 *
+		 * LABEL zmoži
+		 * 	PUSH -4
+		 * 	POPN
+		 * 	REGN.FP
+		 * 	PUSH -12
+		 * 	OPER.ADD
+		 * 	NAME :O
+		 * 	INIT
+		 *
+		 * dataInstructions:
+		 * LABEL :O
+		 * 	DATA 1
+		 * 	DATA 1
+		 * 	DATA 1
+		 * 	DATA 5
+		 */
+
 		/** Obiskovalec, ki generira kodo v abstraktnem sintaksnem drevesu. */
 		private class Generator implements AST.FullVisitor<List<PDM.CodeInstr>, Mem.Frame> {
 
 			@SuppressWarnings({ "doclint:missing" })
-			public Generator() {}
+			public Generator() {
+			}
 
 			@Override
-			public List<PDM.CodeInstr> visit(AST.Nodes<? extends AST.Node> nodes, Mem.Frame frame) {
-				List<PDM.CodeInstr> code = new Vector<>();
+			public List<PDM.CodeInstr> visit(AST.Nodes<? extends AST.Node> nodes, Mem.Frame arg) {
+				Vector<PDM.CodeInstr> codeInstrs = new Vector<>();
 				for (AST.Node node : nodes) {
-					List<PDM.CodeInstr> c = node.accept(this, frame);
-					if (c != null) code.addAll(c);
+
+					final List<PDM.CodeInstr> instrs = node.accept(this, arg);
+					if (instrs == null) {
+						System.out.println("Warning: empty code instruction list for " + node);
+						continue;
+					}
+					codeInstrs.addAll(instrs);
 				}
-				attrAST.attrCode.put(nodes, code);
-				return code;
+				return codeInstrs;
 			}
 
 			@Override
-			public List<PDM.CodeInstr> visit(AST.FunDef funDef, Mem.Frame frame) {
-				List<PDM.CodeInstr> code = new Vector<>();
-				Mem.Frame myFrame = attrAST.attrFrame.get(funDef);
-
-				// Label for function entry
-				code.add(new PDM.LABEL(funDef.name, attrAST.attrLoc.get(funDef)));
-
-				// Allocate space for locals (varsSize)
-				if (myFrame.varsSize > 0)
-					code.add(new PDM.POPN(attrAST.attrLoc.get(funDef)));
-
-				// Generate code for statements
-				code.addAll(funDef.stmts.accept(this, myFrame));
-
-				// Return from function (if not void)
-				code.add(new PDM.RETN(myFrame, attrAST.attrLoc.get(funDef)));
-
-				attrAST.attrCode.put(funDef, code);
-				return code;
+			public List<PDM.CodeInstr> visit(AST.FunDef funDef, Mem.Frame arg) {
+				Vector<PDM.CodeInstr> instructions = new Vector<>();
+				Report.Locatable loc = attrAST.attrLoc.get(funDef);
+				Mem.Frame frame = attrAST.attrFrame.get(funDef);
+				instructions.add(new PDM.LABEL("main".equals(funDef.name) || funDef.stmts.size() == 0 ? funDef.name : funDef.name + ":" + loc.toString(), loc));
+				int varReserveSize = frame.varsSize - 8;
+				// Optimization - only do POPN if there are local variables
+				if (varReserveSize > 0) {
+					instructions.add(new PDM.PUSH(varReserveSize * (-1), loc));
+					instructions.add(new PDM.POPN(loc));
+				}
+				instructions.addAll(funDef.stmts.accept(this, frame));
+				// Remove last popn instruction
+				if (funDef.stmts.size() > 0) {
+					instructions.removeLast();
+					instructions.removeLast();
+				}
+				instructions.add(new PDM.PUSH(frame.parsSize - 4, loc));
+				instructions.add(new PDM.RETN(frame, loc));
+				attrAST.attrCode.put(funDef, instructions);
+				return instructions;
 			}
 
 			@Override
-			public List<PDM.CodeInstr> visit(AST.VarDef varDef, Mem.Frame frame) {
-				List<PDM.CodeInstr> code = new Vector<>();
+			public List<PDM.CodeInstr> visit(AST.VarDef varDef, Mem.Frame arg) {
+				Vector<PDM.CodeInstr> instructions = new Vector<>();
+				Vector<PDM.DataInstr> dataInstructions = new Vector<>();
+				Report.Locatable loc = attrAST.attrLoc.get(varDef);
 				Mem.Access access = attrAST.attrVarAccess.get(varDef);
-
-				if (access instanceof Mem.AbsAccess abs) {
-					List<PDM.DataInstr> data = new Vector<>();
-
-					data.add(new PDM.LABEL(abs.name, attrAST.attrLoc.get(varDef)));
-
-					if (abs.inits != null && !abs.inits.isEmpty()) {
-
-						for (int value : abs.inits) {
-							data.add(new PDM.DATA(value, attrAST.attrLoc.get(varDef)));
-						}
-
-						int words = abs.size / 4;
-						for (int i = abs.inits == null ? 0 : abs.inits.size(); i < words; i++) {
-							data.add(new PDM.DATA(0, attrAST.attrLoc.get(varDef)));
-						}
-
-					} else {
-
-						int words = abs.size / 4;
-
-						for (int i = 0; i < words; i++) {
-							data.add(
-									new PDM.DATA(0,
-											attrAST.attrLoc.get(varDef))
-							);
-						}
-					}
-
-					attrAST.attrData.put(varDef, data);
-				}
-				return code;
-			}
-
-			@Override
-			public List<PDM.CodeInstr> visit(AST.ExprStmt exprStmt, Mem.Frame frame) {
-				List<PDM.CodeInstr> code = exprStmt.expr.accept(this, frame);
-				// Remove result from stack
-				code.add(new PDM.POPN(attrAST.attrLoc.get(exprStmt)));
-				attrAST.attrCode.put(exprStmt, code);
-				return code;
-			}
-
-			@Override
-			public List<PDM.CodeInstr> visit(AST.AssignStmt assignStmt, Mem.Frame frame) {
-				List<PDM.CodeInstr> code = new Vector<>();
-
-				// PINS'26: najprej naslov
-				code.addAll(genLValue(assignStmt.dstExpr, frame));
-
-				// potem vrednost
-				code.addAll(assignStmt.srcExpr.accept(this, frame));
-
-				code.add(new PDM.SAVE(attrAST.attrLoc.get(assignStmt)));
-
-				attrAST.attrCode.put(assignStmt, code);
-				return code;
-			}
-
-			@Override
-			public List<PDM.CodeInstr> visit(AST.IfStmt ifStmt, Mem.Frame frame) {
-				List<PDM.CodeInstr> code = new Vector<>();
-				String thenLabel = "__then" + (labelCounter++);
-				String elseLabel = "__else" + (labelCounter++);
-				String endLabel = "__endif" + (labelCounter++);
-
-				// Condition
-				code.addAll(ifStmt.cond.accept(this, frame));
-				code.add(new PDM.PUSH(0, attrAST.attrLoc.get(ifStmt)));
-				code.add(new PDM.NAME(thenLabel, attrAST.attrLoc.get(ifStmt)));
-				code.add(new PDM.NAME(elseLabel, attrAST.attrLoc.get(ifStmt)));
-				code.add(new PDM.CJMP(attrAST.attrLoc.get(ifStmt)));
-
-				// Then branch
-				code.add(new PDM.LABEL(thenLabel, attrAST.attrLoc.get(ifStmt)));
-				code.addAll(ifStmt.thenStmts.accept(this, frame));
-				code.add(new PDM.NAME(endLabel, attrAST.attrLoc.get(ifStmt)));
-				code.add(new PDM.UJMP(attrAST.attrLoc.get(ifStmt)));
-
-				// Else branch
-				code.add(new PDM.LABEL(elseLabel, attrAST.attrLoc.get(ifStmt)));
-				code.addAll(ifStmt.elseStmts.accept(this, frame));
-
-				// End label
-				code.add(new PDM.LABEL(endLabel, attrAST.attrLoc.get(ifStmt)));
-
-				attrAST.attrCode.put(ifStmt, code);
-				return code;
-			}
-
-			@Override
-			public List<PDM.CodeInstr> visit(AST.WhileStmt whileStmt, Mem.Frame frame) {
-				List<PDM.CodeInstr> code = new Vector<>();
-				String condLabel = "__loop_cond" + (labelCounter++);
-				String bodyLabel = "__loop_body" + (labelCounter++);
-				String endLabel = "__loop_end" + (labelCounter++);
-
-				// Condition at top
-				code.add(new PDM.LABEL(condLabel, attrAST.attrLoc.get(whileStmt)));
-				code.addAll(whileStmt.cond.accept(this, frame));
-				code.add(new PDM.NAME(endLabel, attrAST.attrLoc.get(whileStmt)));
-				code.add(new PDM.NAME(bodyLabel, attrAST.attrLoc.get(whileStmt)));
-				code.add(new PDM.CJMP(attrAST.attrLoc.get(whileStmt)));
-
-				// Body
-				code.add(new PDM.LABEL(bodyLabel, attrAST.attrLoc.get(whileStmt)));
-				code.addAll(whileStmt.stmts.accept(this, frame));
-				code.add(new PDM.NAME(condLabel, attrAST.attrLoc.get(whileStmt)));
-				code.add(new PDM.UJMP(attrAST.attrLoc.get(whileStmt)));
-
-				// End
-				code.add(new PDM.LABEL(endLabel, attrAST.attrLoc.get(whileStmt)));
-
-				attrAST.attrCode.put(whileStmt, code);
-				return code;
-			}
-
-			@Override
-			public List<PDM.CodeInstr> visit(AST.LetStmt letStmt, Mem.Frame frame) {
-				List<PDM.CodeInstr> code = new Vector<>();
-				// Generate code for local definitions (variables)
-				for (AST.MainDef def : letStmt.defs) {
-					code.addAll(def.accept(this, frame));
-				}
-				// Generate code for statements
-				code.addAll(letStmt.stmts.accept(this, frame));
-				attrAST.attrCode.put(letStmt, code);
-				return code;
-			}
-
-			@Override
-			public List<PDM.CodeInstr> visit(AST.AtomExpr atomExpr, Mem.Frame frame) {
-				List<PDM.CodeInstr> code = new Vector<>();
-				int value = 0;
-				switch (atomExpr.type) {
-					case INTCONST -> {
-						value = Memory.decodeIntConst(atomExpr, attrAST.attrLoc.get(atomExpr));
-						code.add(new PDM.PUSH(value, attrAST.attrLoc.get(atomExpr)));
-					}
-					case CHRCONST -> {
-						value = Memory.decodeChrConst(atomExpr, attrAST.attrLoc.get(atomExpr));
-						code.add(new PDM.PUSH(value, attrAST.attrLoc.get(atomExpr)));
-					}
-					case STRCONST -> {
-						String label = "__str" + (labelCounter++);
-						List<PDM.DataInstr> data = new Vector<>();
-						data.add(new PDM.LABEL(label, attrAST.attrLoc.get(atomExpr)));
-						for (int v : Memory.decodeStrConst(atomExpr, attrAST.attrLoc.get(atomExpr)))
-							data.add(new PDM.DATA(v, attrAST.attrLoc.get(atomExpr)));
-						data.add(new PDM.DATA(0, attrAST.attrLoc.get(atomExpr)));
-						attrAST.attrData.put(atomExpr, data);
-						code.add(new PDM.NAME(label, attrAST.attrLoc.get(atomExpr)));
-						attrAST.attrCode.put(atomExpr, code);
-						return code;
+				if (access instanceof Mem.RelAccess relAccess) {
+					final String label = ":" + labelCounter++;
+					dataInstructions.add(new PDM.LABEL(label, loc));
+					relAccess.inits.forEach(init -> dataInstructions.add(new PDM.DATA(init, loc)));
+					instructions.add(new PDM.REGN(PDM.REGN.Reg.FP, loc));
+					instructions.add(new PDM.PUSH(relAccess.offset, loc));
+					instructions.add(new PDM.OPER(PDM.OPER.Oper.ADD, loc));
+					instructions.add(new PDM.NAME(label, loc));
+					instructions.add(new PDM.INIT(loc));
+				} else if (access instanceof Mem.AbsAccess absAccess) {
+					dataInstructions.add(new PDM.LABEL(absAccess.name, loc));
+					dataInstructions.add(new PDM.SIZE(absAccess.size, loc));
+					if (absAccess.inits != null && !absAccess.inits.isEmpty()) {
+						final String label = ":" + labelCounter++;
+						dataInstructions.add(new PDM.LABEL(label, loc));
+						absAccess.inits.forEach(init -> dataInstructions.add(new PDM.DATA(init, loc)));
+						instructions.add(new PDM.NAME(absAccess.name, loc));
+						instructions.add(new PDM.NAME(label, loc));
+						instructions.add(new PDM.INIT(loc));
 					}
 				}
-				attrAST.attrCode.put(atomExpr, code);
-				return code;
+				attrAST.attrCode.put(varDef, instructions);
+				attrAST.attrData.put(varDef, dataInstructions);
+				return instructions;
 			}
 
 			@Override
-			public List<PDM.CodeInstr> visit(AST.UnExpr unExpr, Mem.Frame frame) {
-				List<PDM.CodeInstr> code = new Vector<>();
+			public List<PDM.CodeInstr> visit(AST.UnExpr unExpr, Mem.Frame arg) {
+				Vector<PDM.CodeInstr> instructions = new Vector<>(unExpr.expr.accept(this, arg));
+				Report.Locatable loc = attrAST.attrLoc.get(unExpr);
 				switch (unExpr.oper) {
-					case NOT -> {
-						code.addAll(unExpr.expr.accept(this, frame));
-						code.add(new PDM.OPER(PDM.OPER.Oper.NOT, attrAST.attrLoc.get(unExpr)));
-					}
-					case ADD -> {
-						code.addAll(unExpr.expr.accept(this, frame));
-					}
-					case SUB -> {
-						code.addAll(unExpr.expr.accept(this, frame));
-						code.add(new PDM.OPER(PDM.OPER.Oper.NEG, attrAST.attrLoc.get(unExpr)));
-					}
+					case SUB -> instructions.add(new PDM.OPER(PDM.OPER.Oper.NEG, loc));
+					case NOT -> instructions.add(new PDM.OPER(PDM.OPER.Oper.NOT, loc));
 					case MEMADDR -> {
-						code.addAll(genLValue(unExpr.expr, frame));
+						if (unExpr.expr instanceof AST.VarExpr varExpr) {
+							Vector<PDM.CodeInstr> varInstructions = (Vector<PDM.CodeInstr>) varExpr.accept(this, arg);
+							// Check if varExpr is a local variable
+							if (!varInstructions.isEmpty() && varInstructions.getLast() instanceof PDM.LOAD)
+								varInstructions.removeLast();
+							else
+								throw new Report.Error(loc, "Tried to get adress for %s, last instruction is not LOAD".formatted(varExpr.name));
+							instructions.addAll(varInstructions);
+						} else {
+							throw new Report.Error(loc, "Tried to get adress for %s, but it is not a variable".formatted(unExpr.expr));
+						}
 					}
-					case VALUEAT -> {
-						code.addAll(genLValue(unExpr.expr, frame));
-						code.add(new PDM.LOAD(attrAST.attrLoc.get(unExpr)));
+					case VALUEAT -> instructions.add(new PDM.LOAD(loc));
+				}
+				return instructions;
+			}
+
+			@Override
+			public List<PDM.CodeInstr> visit(AST.ExprStmt exprStmt, Mem.Frame arg) {
+				Vector<PDM.CodeInstr> instructions = new Vector<>(exprStmt.expr.accept(this, arg));
+				Report.Locatable loc = attrAST.attrLoc.get(exprStmt);
+				instructions.add(new PDM.PUSH(4, loc));
+				instructions.add(new PDM.POPN(loc));
+				return instructions;
+			}
+
+			@Override
+			public List<PDM.CodeInstr> visit(AST.AssignStmt assignStmt, Mem.Frame arg) {
+				Vector<PDM.CodeInstr> instructions = new Vector<>();
+				Report.Locatable loc = attrAST.attrLoc.get(assignStmt);
+				instructions.addAll(assignStmt.srcExpr.accept(this, arg));
+				instructions.addAll(assignStmt.dstExpr.accept(this, arg));
+				if (instructions.getLast() instanceof PDM.LOAD) {
+					instructions.removeLast();
+				}
+				instructions.add(new PDM.SAVE(loc));
+				attrAST.attrCode.put(assignStmt, instructions);
+				return instructions;
+			}
+
+			@Override
+			public List<PDM.CodeInstr> visit(AST.VarExpr varExpr, Mem.Frame arg) {
+				Vector<PDM.CodeInstr> instructions = new Vector<>();
+				Report.Locatable loc = attrAST.attrLoc.get(varExpr);
+				// Check if parameter or local variable
+
+				AST.Def def = attrAST.attrDef.get(varExpr);
+				Mem.Access access = def instanceof AST.VarDef ? attrAST.attrVarAccess.get(def) : attrAST.attrParAccess.get((AST.ParDef) def);
+				if (access instanceof Mem.AbsAccess absAccess) {
+					instructions.add(new PDM.NAME(absAccess.name, loc));
+					if (access.size == 4 && access.inits != null && !access.inits.isEmpty()) {
+						instructions.add(new PDM.LOAD(loc));
+					}
+				} else if (access instanceof Mem.RelAccess relAccess) {
+					instructions.add(new PDM.REGN(PDM.REGN.Reg.FP, loc));
+					// This adds loads for each level of depth
+					for (int i = 0; i < arg.depth - relAccess.depth; i++)
+						instructions.add(new PDM.LOAD(loc));
+					instructions.add(new PDM.PUSH(relAccess.offset, loc));
+					instructions.add(new PDM.OPER(PDM.OPER.Oper.ADD, loc));
+					if (attrAST.attrParAccess.containsValue(relAccess) || access.size == 4 && relAccess.inits != null && !relAccess.inits.isEmpty()) {
+						instructions.add(new PDM.LOAD(loc));
 					}
 				}
-				attrAST.attrCode.put(unExpr, code);
-				return code;
+				attrAST.attrCode.put(varExpr, instructions);
+				return instructions;
 			}
 
 			@Override
-			public List<PDM.CodeInstr> visit(AST.BinExpr binExpr, Mem.Frame frame) {
-				List<PDM.CodeInstr> code = new Vector<>();
-				code.addAll(binExpr.fstExpr.accept(this, frame));
-				code.addAll(binExpr.sndExpr.accept(this, frame));
-				PDM.OPER.Oper oper = switch (binExpr.oper) {
-					case OR -> PDM.OPER.Oper.OR;
-					case AND -> PDM.OPER.Oper.AND;
-					case EQU -> PDM.OPER.Oper.EQU;
-					case NEQ -> PDM.OPER.Oper.NEQ;
-					case GTH -> PDM.OPER.Oper.GTH;
-					case LTH -> PDM.OPER.Oper.LTH;
-					case GEQ -> PDM.OPER.Oper.GEQ;
-					case LEQ -> PDM.OPER.Oper.LEQ;
-					case ADD -> PDM.OPER.Oper.ADD;
-					case SUB -> PDM.OPER.Oper.SUB;
-					case MUL -> PDM.OPER.Oper.MUL;
-					case DIV -> PDM.OPER.Oper.DIV;
-					case MOD -> PDM.OPER.Oper.MOD;
-				};
-				code.add(new PDM.OPER(oper, attrAST.attrLoc.get(binExpr)));
-				attrAST.attrCode.put(binExpr, code);
-				return code;
-			}
-
-			@Override
-			public List<PDM.CodeInstr> visit(AST.VarExpr varExpr, Mem.Frame frame) {
-				List<PDM.CodeInstr> code = new Vector<>();
-				Mem.Access access = attrAST.attrVarAccess.get(attrAST.attrDef.get(varExpr));
-				if (access instanceof Mem.AbsAccess abs) {
-					code.add(new PDM.NAME(abs.name, attrAST.attrLoc.get(varExpr)));
-					code.add(new PDM.LOAD(attrAST.attrLoc.get(varExpr)));
-				} else if (access instanceof Mem.RelAccess rel) {
-					code.add(new PDM.PUSH(rel.offset, attrAST.attrLoc.get(varExpr)));
-					code.add(new PDM.REGN(PDM.REGN.Reg.FP, attrAST.attrLoc.get(varExpr)));
-					code.add(new PDM.OPER(PDM.OPER.Oper.ADD, attrAST.attrLoc.get(varExpr)));
-					code.add(new PDM.LOAD(attrAST.attrLoc.get(varExpr)));
-				}
-				attrAST.attrCode.put(varExpr, code);
-				return code;
-			}
-
-			@Override
-			public List<PDM.CodeInstr> visit(AST.CallExpr callExpr, Mem.Frame frame) {
-				List<PDM.CodeInstr> code = new Vector<>();
+			public List<PDM.CodeInstr> visit(AST.CallExpr callExpr, Mem.Frame arg) {
+				Vector<PDM.CodeInstr> instructions = new Vector<>();
+				Report.Locatable loc = attrAST.attrLoc.get(callExpr);
 				AST.FunDef funDef = (AST.FunDef) attrAST.attrDef.get(callExpr);
-
-				List<AST.Expr> args = callExpr.args.getAll();
-				for (int i = 0; i < args.size(); i++) {
-					code.addAll(args.get(i).accept(this, frame));
+				Report.Locatable funDefLoc = attrAST.attrLoc.get(funDef);
+				Mem.Frame frame = attrAST.attrFrame.get(funDef);
+				// Add arguments in reverse order so the first argument is on top of the stack
+				for (int i = callExpr.args.size() - 1; i >= 0; i--) {
+					instructions.addAll(callExpr.args.get(i).accept(this, arg));
 				}
-
-				code.add(new PDM.PUSH(0, attrAST.attrLoc.get(callExpr)));
-
-				// Push function address
-				code.add(new PDM.NAME(funDef.name, attrAST.attrLoc.get(callExpr)));
-
-				// Call
-				code.add(new PDM.CALL(attrAST.attrFrame.get(funDef), attrAST.attrLoc.get(callExpr)));
-
-				attrAST.attrCode.put(callExpr, code);
-				return code;
+				if (frame.depth == 1) {
+					instructions.add(new PDM.PUSH(0, loc));
+				} else {
+					instructions.add(new PDM.REGN(PDM.REGN.Reg.FP, loc));
+					// This adds loads for each level of depth
+					for (int i = 0; i < arg.depth - frame.depth + 1; i++)
+						instructions.add(new PDM.LOAD(loc));
+				}
+				instructions.add(new PDM.NAME("main".equals(funDef.name) || funDef.stmts.size() == 0 ? funDef.name : funDef.name + ":" + funDefLoc.toString(), loc));
+				instructions.add(new PDM.CALL(arg, loc));
+				return instructions;
 			}
 
-			private List<PDM.CodeInstr> genLValue(AST.Expr expr, Mem.Frame frame) {
-				List<PDM.CodeInstr> code = new Vector<>();
-				if (expr instanceof AST.VarExpr varExpr) {
-					Mem.Access access = attrAST.attrVarAccess.get(attrAST.attrDef.get(varExpr));
-					if (access instanceof Mem.AbsAccess abs) {
-						code.add(new PDM.NAME(abs.name, attrAST.attrLoc.get(varExpr)));
-					} else if (access instanceof Mem.RelAccess rel) {
-						code.add(new PDM.PUSH(rel.offset, attrAST.attrLoc.get(varExpr)));
-						code.add(new PDM.REGN(PDM.REGN.Reg.FP, attrAST.attrLoc.get(varExpr)));
-						code.add(new PDM.OPER(PDM.OPER.Oper.ADD, attrAST.attrLoc.get(varExpr)));
+			@Override
+			public List<PDM.CodeInstr> visit(AST.AtomExpr atomExpr, Mem.Frame arg) {
+				Vector<PDM.CodeInstr> instructions = new Vector<>();
+				Report.Locatable loc = attrAST.attrLoc.get(atomExpr);
+				switch (atomExpr.type) {
+					case INTCONST -> instructions.add(new PDM.PUSH(Memory.decodeIntConst(atomExpr, loc), loc));
+					case CHRCONST -> instructions.add(new PDM.PUSH(Memory.decodeChrConst(atomExpr, loc), loc));
+					case STRCONST -> {
+						Vector<PDM.DataInstr> dataInstructions = new Vector<>();
+						String label = ":" + labelCounter++;
+						dataInstructions.add(new PDM.LABEL(label, loc));
+						Memory.decodeStrConst(atomExpr, loc).forEach(c -> dataInstructions.add(new PDM.DATA(c, loc)));
+						attrAST.attrData.put(atomExpr, dataInstructions);
+						instructions.add(new PDM.NAME(label, loc));
 					}
-				} else if (expr instanceof AST.UnExpr unExpr && unExpr.oper == AST.UnExpr.Oper.VALUEAT) {
-					code.addAll(unExpr.expr.accept(this, frame));
-				} else {
-					throw new Report.InternalError();
 				}
-				return code;
+				attrAST.attrCode.put(atomExpr, instructions);
+				return instructions;
+			}
+
+			@Override
+			public List<PDM.CodeInstr> visit(AST.BinExpr binExpr, Mem.Frame arg) {
+				Vector<PDM.CodeInstr> instructions = new Vector<>();
+				instructions.addAll(binExpr.fstExpr.accept(this, arg));
+				instructions.addAll(binExpr.sndExpr.accept(this, arg));
+				instructions.add(new PDM.OPER(getMachineOper(binExpr.oper), attrAST.attrLoc.get(binExpr)));
+				attrAST.attrCode.put(binExpr, instructions);
+				return instructions;
+			}
+
+			@Override
+			public List<PDM.CodeInstr> visit(AST.IfStmt ifStmt, Mem.Frame arg) {
+				Report.Locatable loc = attrAST.attrLoc.get(ifStmt);
+				final String ifStatementLabel = ":if:" + ++labelCounter;
+				final String elseStatementLabel = ":else:" + labelCounter;
+				final String endStatementLabel = ":end:" + labelCounter;
+				Vector<PDM.CodeInstr> instructions = new Vector<>(ifStmt.cond.accept(this, arg));
+				instructions.add(new PDM.NAME(ifStatementLabel, loc));
+				if (ifStmt.elseStmts != null && ifStmt.elseStmts.size() > 0) {
+					instructions.add(new PDM.NAME(elseStatementLabel, loc));
+				} else {
+					instructions.add(new PDM.NAME(endStatementLabel, loc));
+				}
+				instructions.add(new PDM.CJMP(loc));
+				// if statements
+				instructions.add(new PDM.LABEL(ifStatementLabel, loc));
+				instructions.addAll(ifStmt.thenStmts.accept(this, arg));
+				if (ifStmt.elseStmts != null && ifStmt.elseStmts.size() > 0) {
+					instructions.add(new PDM.NAME(endStatementLabel, loc));
+					instructions.add(new PDM.UJMP(loc));
+					// else statements
+					instructions.add(new PDM.LABEL(elseStatementLabel, loc));
+					instructions.addAll(ifStmt.elseStmts.accept(this, arg));
+				}
+				// End
+				instructions.add(new PDM.LABEL(endStatementLabel, loc));
+				return instructions;
+			}
+
+			@Override
+			public List<PDM.CodeInstr> visit(AST.WhileStmt whileStmt, Mem.Frame arg) {
+				Vector<PDM.CodeInstr> instructions = new Vector<>();
+				Report.Locatable loc = attrAST.attrLoc.get(whileStmt);
+				final String whileStatementLabel = ":while_cond:" + ++labelCounter;
+				final String whileBodyLabel = ":while_body:" + labelCounter;
+				final String endStatementLabel = ":end:" + labelCounter;
+				// Condition
+				instructions.add(new PDM.LABEL(whileStatementLabel, loc));
+				instructions.addAll(whileStmt.cond.accept(this, arg));
+				instructions.add(new PDM.NAME(whileBodyLabel, loc));
+				instructions.add(new PDM.NAME(endStatementLabel, loc));
+				instructions.add(new PDM.CJMP(loc));
+				// Body
+				instructions.add(new PDM.LABEL(whileBodyLabel, loc));
+				instructions.addAll(whileStmt.stmts.accept(this, arg));
+				instructions.add(new PDM.NAME(whileStatementLabel, loc));
+				instructions.add(new PDM.UJMP(loc));
+				// End
+				instructions.add(new PDM.LABEL(endStatementLabel, loc));
+				return instructions;
+			}
+
+			@Override
+			public List<PDM.CodeInstr> visit(AST.LetStmt letStmt, Mem.Frame arg) {
+				Vector<PDM.CodeInstr> instructions = new Vector<>();
+				for (AST.MainDef def : letStmt.defs) {
+					if (def instanceof AST.VarDef)
+						instructions.addAll(def.accept(this, arg));
+					else
+						def.accept(this, arg);
+				}
+				instructions.addAll(letStmt.stmts.accept(this, arg));
+				return instructions;
 			}
 		}
 
@@ -507,7 +503,7 @@ public class CodeGen {
 
 		/**
 		 * Izracuna seznam ukazov, ki predstavljajo kodo programa.
-		 * 
+		 *
 		 * @return Seznam ukazov, ki predstavljajo kodo programa.
 		 */
 		public List<PDM.CodeInstr> codeSegment() {
@@ -542,7 +538,7 @@ public class CodeGen {
 				funDef.pars.accept(this, arg);
 				funDef.stmts.accept(this, arg);
 				switch (funDef.name) {
-				case "main" -> main = attrAST.attrFrame.get(funDef);
+					case "main" -> main = attrAST.attrFrame.get(funDef);
 				}
 				return null;
 			}
@@ -550,19 +546,16 @@ public class CodeGen {
 			@Override
 			public Object visit(final AST.VarDef varDef, final Object arg) {
 				switch (attrAST.attrVarAccess.get(varDef)) {
-				case Mem.AbsAccess __: {
-					List<PDM.CodeInstr> code = attrAST.attrCode.get(varDef);
-
-					if (code != null && !code.isEmpty())
+					case Mem.AbsAccess __: {
+						List<PDM.CodeInstr> code = attrAST.attrCode.get(varDef);
 						codeInitSegment.addAll(code);
-
-					break;
-				}
-				case Mem.RelAccess __: {
-					break;
-				}
-				default:
-					throw new Report.InternalError();
+						break;
+					}
+					case Mem.RelAccess __: {
+						break;
+					}
+					default:
+						throw new Report.InternalError();
 				}
 				return null;
 			}
@@ -597,7 +590,7 @@ public class CodeGen {
 
 		/**
 		 * Izracuna seznam ukazov, ki predstavljajo podatke programa.
-		 * 
+		 *
 		 * @return Seznam ukazov, ki predstavljajo podatke programa.
 		 */
 		public List<PDM.DataInstr> dataSegment() {
@@ -635,15 +628,33 @@ public class CodeGen {
 
 	}
 
+	public static PDM.OPER.Oper getMachineOper(AST.BinExpr.Oper oper) {
+		return switch (oper) {
+			case OR -> PDM.OPER.Oper.OR;
+			case AND -> PDM.OPER.Oper.AND;
+			case EQU -> PDM.OPER.Oper.EQU;
+			case NEQ -> PDM.OPER.Oper.NEQ;
+			case GTH -> PDM.OPER.Oper.GTH;
+			case LTH -> PDM.OPER.Oper.LTH;
+			case GEQ -> PDM.OPER.Oper.GEQ;
+			case LEQ -> PDM.OPER.Oper.LEQ;
+			case ADD -> PDM.OPER.Oper.ADD;
+			case SUB -> PDM.OPER.Oper.SUB;
+			case MUL -> PDM.OPER.Oper.MUL;
+			case DIV -> PDM.OPER.Oper.DIV;
+			case MOD -> PDM.OPER.Oper.MOD;
+		};
+	}
+
 	// --- ZAGON ---
 
 	/**
 	 * Zagon izracuna pomnilniske predstavitve kot samostojnega programa.
-	 * 
+	 *
 	 * @param cmdLineArgs Argumenti v ukazni vrstici.
 	 */
 	public static void main(final String[] cmdLineArgs) {
-		System.out.println("This is PINS'26 compiler (code generation):");
+		System.out.println("This is PINS'25 compiler (code generation):");
 
 		try {
 			if (cmdLineArgs.length == 0)
@@ -659,7 +670,7 @@ public class CodeGen {
 				// pomnilniska predstavitev:
 				final Memory.AttrAST memoryAttrAST = Memory.organize(semanAttrAST);
 				// generiranje kode:
-				final CodeGen.AttrAST codegenAttrAST = CodeGen.generate(memoryAttrAST);
+				final AttrAST codegenAttrAST = CodeGen.generate(memoryAttrAST);
 
 				(new AST.Logger(codegenAttrAST)).log();
 				{

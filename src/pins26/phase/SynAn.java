@@ -545,12 +545,13 @@ public class SynAn implements AutoCloseable {
 		Token t = lexAn.peekToken();
 		AST.AtomExpr value = parseAtom();
 
-		if (t.symbol() == Token.Symbol.MUL) {
+		if (lexAn.peekToken().symbol() == Token.Symbol.MUL) {
 			check(Token.Symbol.MUL);
 			AST.AtomExpr num = parseAtom();
 			attrLoc.put(num, t);
 
-			AST.Init node = new AST.Init(num, value);
+//			AST.Init node = new AST.Init(num, value);
+			AST.Init node = new AST.Init(value, num);
 			attrLoc.put(node, t);
 
 			return node;
@@ -559,6 +560,7 @@ public class SynAn implements AutoCloseable {
 		AST.AtomExpr one = new AST.AtomExpr(AST.AtomExpr.Type.INTCONST, "1");
 		attrLoc.put(one, t);
 		AST.Init node = new AST.Init(one, value);
+//		AST.Init node = new AST.Init(value, one);
 		attrLoc.put(node, t);
 
 		return node;

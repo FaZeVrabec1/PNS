@@ -1,7 +1,1 @@
-var m=0
-fun f(i,j)=g(i+j+m)+n;
-fun g(i)=i^=3;f(i,i+n)==(i^-'0');
-var n=1
-var hw="Hello,World."
-fun b()=3;
-var balls = "test\n"
+var m= 200
